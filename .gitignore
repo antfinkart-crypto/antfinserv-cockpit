@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production output
+dist/
+
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Logs & temp
+*.log
+scratch/
+scratch_*.js
+
+# OS generated files
+Thumbs.db
+.DS_Store

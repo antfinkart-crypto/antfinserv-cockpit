@@ -1,0 +1,53 @@
+/**
+ * ANTFINSERV CRM — Master Industry / Business Sector Taxonomy
+ * Covering all major business & trade sectors across India
+ */
+export const INDUSTRY_SECTORS = [
+  'Banking & Financial Services',
+  'Insurance',
+  'Mutual Funds & Wealth Management',
+  'NBFC & Lending',
+  'FinTech',
+  'Real Estate & Property Development',
+  'Construction & Infrastructure',
+  'Building Materials & Hardware',
+  'Manufacturing & Heavy Engineering',
+  'Automotive & Auto Components',
+  'Pharmaceuticals & Life Sciences',
+  'Healthcare & Hospitals',
+  'Medical Equipment & Devices',
+  'Information Technology & Software',
+  'IT Services & BPO',
+  'Telecommunications',
+  'Electronics & Electrical Equipment',
+  'FMCG & Consumer Goods',
+  'Retail & Supermarkets',
+  'E-commerce & D2C',
+  'Wholesale & Trade Distribution',
+  'Logistics, Warehousing & Supply Chain',
+  'Transportation & Fleet Operations',
+  'Travel, Tourism & Hospitality',
+  'Restaurants, Hotels & Food Services',
+  'Food Processing & Beverages',
+  'Agriculture & Agri-business',
+  'Chemicals, Petrochemicals & Paints',
+  'Textiles, Garments & Apparel',
+  'Gems, Jewellery & Precious Metals',
+  'Iron, Steel, Metals & Mining',
+  'Energy & Renewable Power',
+  'Oil, Gas & Petroleum',
+  'Power & Utilities',
+  'Education, Schools & EdTech',
+  'Media, Publishing & Entertainment',
+  'Advertising, Branding & PR',
+  'Professional Consulting Services',
+  'Legal & Law Practice',
+  'Accounting, Audit & Taxation',
+  'Security & Facility Management',
+  'Export, Import & International Trade',
+  'Shipping, Ports & Marine',
+  'Government & Public Sector Enterprise',
+  'Other'
+] as const;
+
+export type IndustrySector = typeof INDUSTRY_SECTORS[number];

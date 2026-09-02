@@ -1,0 +1,23 @@
+{
+  "short_name": "AntFinserv",
+  "name": "AntFinserv Cockpit CRM (ARN-94204)",
+  "icons": [
+    {
+      "src": "/logo.jpeg",
+      "type": "image/jpeg",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/logo.jpeg",
+      "type": "image/jpeg",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0b132b",
+  "theme_color": "#0b132b",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/"
+}
