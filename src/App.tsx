@@ -94,10 +94,9 @@ export const App: React.FC = () => {
 
       setClients(c);
 
-      // 1. Authoritative Client Master with exact mobile mappings
+      // 1. Authoritative Client Master with exact mobile mappings (112 clients)
       let masterRecords = cm;
-      const hasOldBuggySeeds = cm.some(record => record.client_id.includes('_nopan') || record.client_id.startsWith('antos_cli_migrated_'));
-      if (masterRecords.length === 0 || hasOldBuggySeeds) {
+      if (masterRecords.length < 112) {
         if (seedData.client_master && seedData.client_master.length > 0) {
           masterRecords = seedData.client_master as ClientMasterRecord[];
           await localDb.clear('client_master');
@@ -116,17 +115,19 @@ export const App: React.FC = () => {
         await localDb.putMany('leads', currentLeads);
       }
 
-      // 3. Active SIPs
+      // 3. Active SIPs (156 active mandates)
       let currentSips = s;
-      if (currentSips.length === 0 && seedData.sips && seedData.sips.length > 0) {
+      if (currentSips.length < 156 && seedData.sips && seedData.sips.length > 0) {
         currentSips = seedData.sips as ActiveSip[];
+        await localDb.clear('sips');
         await localDb.putMany('sips', currentSips);
       }
 
-      // 4. Authoritative Holdings (Ensuring Portfolio AUM is accurately populated)
+      // 4. Authoritative Holdings (323 folio holdings totaling ₹7.91 Cr AUM)
       let currentHoldings = h;
-      if (currentHoldings.length === 0 && seedData.holdings && seedData.holdings.length > 0) {
+      if (currentHoldings.length < 320 && seedData.holdings && seedData.holdings.length > 0) {
         currentHoldings = seedData.holdings as MfHolding[];
+        await localDb.clear('holdings');
         await localDb.putMany('holdings', currentHoldings);
       }
 
