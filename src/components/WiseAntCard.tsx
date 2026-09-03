@@ -33,19 +33,21 @@ export const WiseAntCard: React.FC<WiseAntCardProps> = ({
       displayMessage = `${expiringPoliciesCount} insurance policies are due for renewal within 30 days. Initiating renewal audits before grace period expiry prevents loss of waiting period credits.`;
       displaySubtext = 'Protection Vault Protocol • Zero Gap Family Coverage';
     } else {
-      displayMessage = 'A NO-TRANSFER recommendation is not a failed deal; it is a TRUST EVENT. Protect client capital first, and compounding AUM will follow relentlessly.';
-      displaySubtext = 'AntFinserv Fiduciary Principle • ARN-94204';
+      displayMessage = 'A NO-TRANSFER recommendation is not a failed deal; it is a TRUST EVENT. Protect client capital first, and compounding wealth will follow relentlessly.';
+      displaySubtext = 'AntFinserv Wealth Advisory Principle • ARN-94204';
     }
   }
 
   return (
     <div className="glass-panel p-5 md:p-6 lg:p-7 rounded-2xl border border-amber-200 bg-amber-50/40 relative overflow-hidden shadow-sm">
       <div className="flex items-start gap-4 relative z-10">
-        {/* Avatar */}
-        <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 p-0.5 shadow-md flex-shrink-0">
-          <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center font-black text-amber-400 text-lg md:text-xl tracking-tighter">
-            🐜
-          </div>
+        {/* Official Mascot Avatar */}
+        <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl overflow-hidden border-2 border-amber-500/40 shadow-md flex-shrink-0 bg-slate-950">
+          <img
+            src="/logo.png"
+            alt="The Wise Ant"
+            className="w-full h-full object-cover"
+          />
         </div>
 
         <div className="flex-1 space-y-1.5">

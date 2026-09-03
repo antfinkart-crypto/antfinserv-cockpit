@@ -87,3 +87,31 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Bank-Grade Print-to-PDF Styles for Official Verdict Report */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-verdict-report,
+  #printable-verdict-report * {
+    visibility: visible;
+  }
+  #printable-verdict-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 12mm !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+}
+

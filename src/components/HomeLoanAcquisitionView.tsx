@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Home,
   Phone,
@@ -12,7 +12,10 @@ import {
   Clock,
   ArrowRight,
   HelpCircle,
-  Edit2
+  Edit2,
+  FileText,
+  Printer,
+  TrendingUp
 } from 'lucide-react';
 import {
   calculateHomeLoanBT,
@@ -21,6 +24,7 @@ import {
   HomeLoanResults
 } from '../lib/homeLoanEngine';
 import { WiseAntCard } from './WiseAntCard';
+import { HomeLoanVerdictReportModal } from './HomeLoanVerdictReportModal';
 import { generateWhatsAppUrl } from '../lib/whatsAppRouter';
 
 export const HomeLoanAcquisitionView: React.FC = () => {
@@ -40,6 +44,7 @@ export const HomeLoanAcquisitionView: React.FC = () => {
   });
 
   const [isManualTenure, setIsManualTenure] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   // Auto-calculate tenure from Principal, Rate, and EMI
   const autoTenure = calculateTenureFromEmi(
@@ -53,6 +58,15 @@ export const HomeLoanAcquisitionView: React.FC = () => {
     ...inputs,
     tenureMode: isManualTenure ? 'MANUAL' : 'AUTO'
   });
+
+  // Calculate Wealth Multiplier (SIP compounding at 12% CAGR)
+  const monthlySaving = results.monthlyEmiReduction > 0 ? results.monthlyEmiReduction : 0;
+  const tenureMonths = results.activeRemainingTenure;
+  const i = 0.12 / 12;
+  const sipFutureValue = monthlySaving > 0
+    ? Math.round(monthlySaving * ((Math.pow(1 + i, tenureMonths) - 1) / i) * (1 + i))
+    : 0;
+  const totalSipInvested = monthlySaving * tenureMonths;
 
   const handleShareSummary = () => {
     let strategyDesc = '';
@@ -74,10 +88,10 @@ export const HomeLoanAcquisitionView: React.FC = () => {
 
     const msg = `Dear ${inputs.clientName},
 
-Here is the ANTFINSERV Balance Transfer & Refinancing Audit for your Home Loan (${inputs.currentLender}):
+Here is your Official ANTFINSERV Balance Transfer & Refinancing Audit (${inputs.currentLender}):
 
-LOAN BASELINE (ACTUALS):
-• Outstanding Balance: ₹${inputs.outstandingPrincipal.toLocaleString('en-IN')}
+VERIFIED CURRENT LOAN:
+• Outstanding Principal: ₹${inputs.outstandingPrincipal.toLocaleString('en-IN')}
 • Current Interest Rate: ${inputs.currentRate}%
 • Current Monthly EMI: ₹${inputs.currentEmi.toLocaleString('en-IN')}/mo
 • Verified Remaining Tenure: ${results.activeRemainingTenure} Months (${Math.floor(results.activeRemainingTenure / 12)} Yrs ${results.activeRemainingTenure % 12} Mos)
@@ -85,7 +99,7 @@ LOAN BASELINE (ACTUALS):
 REFINANCING PROPOSAL (@ ${inputs.proposedRate}%):
 ${strategyDesc}
 
-FIDUCIARY VERDICT:
+EXPERT ADVISORY VERDICT:
 ${results.conclusionText}
 
 THE WISE ANT SAYS:
@@ -114,23 +128,33 @@ Planning your Finances, like the Wise Ant`;
                   Home Loan Refinancing & Acquisition Engine
                 </h2>
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold border border-amber-200 hidden sm:inline-block">
-                  v3 Reverse Amortization
+                  v3 Institutional Precision
                 </span>
               </div>
               <p className="text-xs md:text-sm text-slate-500 mt-0.5">
-                Institutional-grade calculation. Auto-determines true outstanding tenure from debited EMI & loan balance. Zero inflated projections.
+                Bank-grade precision engine. Auto-determines true outstanding tenure from debited EMI & loan balance. 100% transparent client advice.
               </p>
             </div>
           </div>
         </div>
 
-        <button
-          onClick={handleShareSummary}
-          className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-xs transition-all flex-shrink-0"
-        >
-          <Phone className="w-4 h-4" />
-          <span>Share Audit on WhatsApp</span>
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => setIsReportModalOpen(true)}
+            className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-xs transition-all border border-slate-700"
+          >
+            <FileText className="w-4 h-4 text-amber-400" />
+            <span>Generate Verdict Report</span>
+          </button>
+
+          <button
+            onClick={handleShareSummary}
+            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-xs transition-all flex-shrink-0"
+          >
+            <Phone className="w-4 h-4" />
+            <span>Share on WhatsApp</span>
+          </button>
+        </div>
       </div>
 
       {/* Grid: Inputs + Decision Matrix */}
@@ -406,18 +430,46 @@ Planning your Finances, like the Wise Ant`;
 
             {/* Analysis Summary */}
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
-              <span className="font-bold text-slate-900 block">Fiduciary Analysis Verdict:</span>
+              <span className="font-bold text-slate-900 block">AntFinServ Advisory Verdict:</span>
               <p className="text-slate-600 leading-relaxed">{results.conclusionText}</p>
             </div>
+
+            {/* Button to Launch Full Sanction Report */}
+            <button
+              type="button"
+              onClick={() => setIsReportModalOpen(true)}
+              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 text-white font-bold text-xs md:text-sm flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg transition-all border border-amber-500/30 group cursor-pointer"
+            >
+              <FileText className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              <span>Generate Official Verdict Report (PDF)</span>
+              <ArrowRight className="w-4 h-4 text-amber-400" />
+            </button>
+
+            {/* Compounding Wealth Multiplier Callout */}
+            {monthlySaving > 0 && (
+              <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-800 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <TrendingUp className="w-5 h-5 text-amber-700" />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs font-black text-slate-900 block">
+                    The Wealth Multiplier Advantage:
+                  </span>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    If you channel your monthly savings of <strong>₹{monthlySaving.toLocaleString('en-IN')}/mo</strong> into an automated <strong>Mutual Fund Wealth SIP (12% CAGR)</strong> for {tenureMonths} months, your saved money creates an additional <strong>₹{sipFutureValue.toLocaleString('en-IN')}</strong> wealth corpus!
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Wise Ant Commentary Card */}
             <WiseAntCard
               message={results.wiseAntMessage}
-              subtext="Fiduciary Consultation • AntFinserv"
+              subtext="Expert Advisory • AntFinserv (ARN-94204)"
               mood={results.isBeneficial ? 'Opportunity' : 'Cautious'}
             />
 
-            {/* Honest Amortization Breakdown Table */}
+            {/* Amortization Breakdown Table */}
             <div className="pt-2 border-t border-slate-100 space-y-2">
               <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
                 Amortization Comparison (Current vs Proposed)
@@ -484,6 +536,14 @@ Planning your Finances, like the Wise Ant`;
           </div>
         </div>
       </div>
+
+      {/* Official Verdict Report Modal */}
+      <HomeLoanVerdictReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        inputs={inputs}
+        results={results}
+      />
     </div>
   );
 };
