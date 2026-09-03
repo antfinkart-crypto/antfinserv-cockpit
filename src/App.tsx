@@ -94,42 +94,40 @@ export const App: React.FC = () => {
 
       setClients(c);
 
-      // Auto-migrate or Seed master records if empty
+      // 1. Authoritative Client Master with exact mobile mappings
       let masterRecords = cm;
-      if (masterRecords.length === 0) {
-        if (c.length > 0) {
-          masterRecords = c.map((legacyClient, idx) => ({
-            client_id: `antos_cli_migrated_${idx}_${legacyClient.pan_number || 'nopan'}`,
-            source_system: 'MANUAL',
-            pan: legacyClient.pan_number && legacyClient.pan_number !== 'PAN_NOT_PROVIDED' ? legacyClient.pan_number : null,
-            investor_name: legacyClient.full_name,
-            dob: legacyClient.dob || null,
-            gender: 'Not Specified',
-            mobile: legacyClient.mobile || '',
-            email: legacyClient.email || '',
-            mapping_role: 'Individual',
-            created_at: legacyClient.created_at || new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            data_quality_flags: legacyClient.pan_number ? [] : ['MISSING_PAN']
-          }));
-        } else if (seedData.client_master && seedData.client_master.length > 0) {
+      const hasOldBuggySeeds = cm.some(record => record.client_id.includes('_nopan') || record.client_id.startsWith('antos_cli_migrated_'));
+      if (masterRecords.length === 0 || hasOldBuggySeeds) {
+        if (seedData.client_master && seedData.client_master.length > 0) {
           masterRecords = seedData.client_master as ClientMasterRecord[];
-        }
-        if (masterRecords.length > 0) {
+          await localDb.clear('client_master');
           await localDb.putMany('client_master', masterRecords);
         }
       }
 
-      let currentLeads = l;
+      // 2. Clean dummy leads
+      const dummyIds = ['lead_rai_sahib', 'lead_arpit_arora'];
+      for (const did of dummyIds) {
+        await localDb.delete('leads', did);
+      }
+      let currentLeads = l.filter(lead => !dummyIds.includes(lead.id));
       if (currentLeads.length === 0 && seedData.leads && seedData.leads.length > 0) {
         currentLeads = seedData.leads as Lead[];
         await localDb.putMany('leads', currentLeads);
       }
 
+      // 3. Active SIPs
       let currentSips = s;
       if (currentSips.length === 0 && seedData.sips && seedData.sips.length > 0) {
         currentSips = seedData.sips as ActiveSip[];
         await localDb.putMany('sips', currentSips);
+      }
+
+      // 4. Authoritative Holdings (Ensuring Portfolio AUM is accurately populated)
+      let currentHoldings = h;
+      if (currentHoldings.length === 0 && seedData.holdings && seedData.holdings.length > 0) {
+        currentHoldings = seedData.holdings as MfHolding[];
+        await localDb.putMany('holdings', currentHoldings);
       }
 
       setClientMaster(masterRecords);
@@ -137,7 +135,7 @@ export const App: React.FC = () => {
       setClientReviewQueue(revq.filter(q => q.status === 'PENDING'));
       setClientChangeLogs(logs.sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()));
 
-      setHoldings(h);
+      setHoldings(currentHoldings);
       setSips(currentSips);
       setBatches(b);
       setLeads(currentLeads);
@@ -456,10 +454,17 @@ export const App: React.FC = () => {
         {activeTab === 'pipeline' && (
           <NewLeadsProspectsManager
             leads={leads}
+            clients={clientMaster}
             onAddLead={async (newLead: Lead) => {
               await localDb.put('leads', newLead);
               setLeads(prev => [newLead, ...prev.filter(l => l.id !== newLead.id)]);
               alert('Lead recorded successfully!');
+            }}
+            onDeleteLead={async (leadId: string) => {
+              if (window.confirm('Are you sure you want to delete this prospect from pipeline?')) {
+                await localDb.delete('leads', leadId);
+                setLeads(prev => prev.filter(l => l.id !== leadId));
+              }
             }}
           />
         )}

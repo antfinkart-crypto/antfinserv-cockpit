@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
-import { Lead } from '../types';
+import { Lead, ClientMasterRecord } from '../types';
 import { INDUSTRY_SECTORS } from '../data/industries';
-import { Users, Plus, Search, Tag, MessageSquare, Building2, MapPin, Briefcase } from 'lucide-react';
+import { Users, Plus, Search, Tag, MessageSquare, Building2, MapPin, Briefcase, Trash2 } from 'lucide-react';
 import { generateWhatsAppUrl } from '../lib/whatsAppRouter';
 
 interface NewLeadsProspectsManagerProps {
   leads: Lead[];
+  clients?: ClientMasterRecord[];
   onAddLead: (lead: Lead) => Promise<void>;
+  onDeleteLead?: (leadId: string) => Promise<void>;
 }
 
 export const NewLeadsProspectsManager: React.FC<NewLeadsProspectsManagerProps> = ({
   leads,
-  onAddLead
+  clients = [],
+  onAddLead,
+  onDeleteLead
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIndustry, setSelectedIndustry] = useState<string>('all');
@@ -58,24 +62,37 @@ export const NewLeadsProspectsManager: React.FC<NewLeadsProspectsManagerProps> =
     const firmName = newLead.firm_name?.trim() || '';
 
     if (!ownerName && !mobile && !firmName) {
-      alert('Please provide at least a Contact Person Name or Mobile number to save this prospect.');
+      alert('Please enter at least a Contact Name or Mobile Number to add this prospect.');
       return;
     }
 
+    // Check duplicate mobile in client master
+    if (mobile && clients && clients.length > 0) {
+      const cleanDigits = mobile.replace(/\D/g, '');
+      if (cleanDigits.length >= 10) {
+        const existingClient = clients.find(c => c.mobile && c.mobile.replace(/\D/g, '').endsWith(cleanDigits.slice(-10)));
+        if (existingClient) {
+          const confirmAdd = window.confirm(
+            `Notice: A client with mobile ${mobile} is already registered in your Mutual Fund Client Master (${existingClient.investor_name})!\n\nDo you still want to create this as a separate pipeline lead?`
+          );
+          if (!confirmAdd) return;
+        }
+      }
+    }
+
     const lead: Lead = {
-      id: 'lead-' + Date.now(),
-      entry_date: new Date().toISOString().split('T')[0],
-      firm_name: firmName || (ownerName ? `${ownerName} (Individual)` : 'Individual Prospect'),
-      owner_name: ownerName || firmName || 'Prospect',
-      designation: newLead.designation?.trim(),
-      mobile: mobile,
-      email: newLead.email?.trim(),
-      location: newLead.location?.trim(),
-      industry_sector: newLead.industry_sector || 'Banking & Financial Services',
-      industry_remarks: newLead.industry_sector === 'Other' ? newLead.industry_remarks : undefined,
-      status: (newLead.status as Lead['status']) || 'Warm Lead',
-      priority: (newLead.priority as Lead['priority']) || 'Medium',
-      notes: newLead.notes?.trim(),
+      id: `lead_${Date.now()}`,
+      firm_name: firmName || (ownerName ? `${ownerName} (Individual)` : 'Prospect Lead'),
+      owner_name: ownerName || 'Prospect Contact',
+      designation: newLead.designation?.trim() || 'Owner / Partner',
+      mobile: mobile || '',
+      email: newLead.email?.trim() || '',
+      location: newLead.location?.trim() || '',
+      industry_sector: newLead.industry_sector || 'Other',
+      industry_remarks: newLead.industry_remarks?.trim() || '',
+      status: newLead.status || 'Warm Lead',
+      priority: newLead.priority || 'Medium',
+      notes: newLead.notes?.trim() || '',
       created_at: new Date().toISOString()
     };
 
@@ -98,105 +115,104 @@ export const NewLeadsProspectsManager: React.FC<NewLeadsProspectsManagerProps> =
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="glass-panel p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      {/* Top Controls & Metrics */}
+      <div className="glass-panel p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xs bg-white">
         <div>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-              <Users className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="text-xl md:text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
-                New Leads & Prospects Pipeline
-              </h2>
-              <p className="text-xs md:text-sm text-slate-500 mt-0.5">
-                Corporate, MSME, and retail investor acquisition repository across all trade & business sectors.
-              </p>
-            </div>
+            <h2 className="text-xl md:text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
+              New Leads & Prospects Pipeline
+            </h2>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 font-bold border border-blue-200">
+              {leads.length} Total Prospects
+            </span>
           </div>
+          <p className="text-xs md:text-sm text-slate-500 mt-1">
+            B2B Commercial & Retail Lead Management. Quick outreach via WhatsApp Business.
+          </p>
         </div>
 
         <button
           onClick={() => setIsAddModalOpen(true)}
-          className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-sm transition-all"
+          className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-xs transition-all flex-shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>Add New Prospect</span>
+          <span>+ Add New Lead / Prospect</span>
         </button>
       </div>
 
-      {/* Filters & Search */}
-      <div className="glass-panel p-4 rounded-2xl border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 flex-1">
-          <Tag className="w-4 h-4 text-slate-400" />
-          <span className="text-xs font-semibold text-slate-600">Industry:</span>
-          <select
-            value={selectedIndustry}
-            onChange={(e) => setSelectedIndustry(e.target.value)}
-            className="p-2 text-xs md:text-sm rounded-xl bg-white border border-slate-300 text-slate-900 font-medium focus:outline-none focus:border-blue-500 max-w-xs"
-          >
-            <option value="all">All Industries ({leads.length})</option>
-            {INDUSTRY_SECTORS.map((ind) => (
-              <option key={ind} value={ind}>{ind}</option>
-            ))}
-          </select>
-        </div>
-
+      {/* Filter Bar */}
+      <div className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white flex flex-col md:flex-row items-center justify-between gap-4 shadow-xs">
         <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="text"
-            placeholder="Search Company, Contact, Phone..."
+            placeholder="Search by firm, owner, or mobile..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs md:text-sm rounded-xl bg-white border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-blue-500 font-medium"
           />
+        </div>
+
+        <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto">
+          <label className="text-xs font-semibold text-slate-500 whitespace-nowrap">Filter Industry:</label>
+          <select
+            value={selectedIndustry}
+            onChange={e => setSelectedIndustry(e.target.value)}
+            className="text-xs rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-medium focus:outline-none focus:border-blue-500"
+          >
+            <option value="all">All Industries ({leads.length})</option>
+            {INDUSTRY_SECTORS.map(sec => {
+              const count = leads.filter(l => l.industry_sector === sec).length;
+              return (
+                <option key={sec} value={sec}>
+                  {sec} ({count})
+                </option>
+              );
+            })}
+          </select>
         </div>
       </div>
 
-      {/* Empty State */}
+      {/* Kanban Board Layout */}
       {leads.length === 0 ? (
-        <div className="glass-panel p-12 md:p-16 text-center rounded-2xl border border-slate-200 space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto shadow-sm">
-            <Users className="w-8 h-8" />
-          </div>
-          <div className="max-w-md mx-auto space-y-1.5">
-            <h3 className="text-xl font-bold text-slate-900">No prospects added yet.</h3>
-            <p className="text-xs md:text-sm text-slate-500 leading-relaxed">
-              Begin by registering your first business, MSME, or retail prospect to manage consultations, treasury pitches, and wealth conversions.
-            </p>
-          </div>
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs md:text-sm inline-flex items-center gap-2 shadow-sm transition-all mt-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add New Prospect</span>
-          </button>
+        <div className="glass-panel p-12 text-center rounded-2xl border border-slate-200 bg-white space-y-3">
+          <Users className="w-12 h-12 text-slate-300 mx-auto" />
+          <h3 className="text-base font-bold text-slate-700">No Prospects in Pipeline</h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            Click "+ Add New Lead / Prospect" above to add contacts with name and mobile number.
+          </p>
         </div>
       ) : (
-        /* Kanban Board */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {columns.map(col => {
             const colLeads = filteredLeads.filter(l => l.status === col.status);
             return (
-              <div key={col.status} className="glass-panel p-4 rounded-2xl border border-slate-200 flex flex-col space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <span className={`text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg ${col.color}`}>{col.title}</span>
-                  <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{colLeads.length}</span>
+              <div key={col.status} className="glass-panel p-3.5 rounded-2xl border border-slate-200 bg-slate-50 flex flex-col min-h-[500px]">
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <span className={`text-xs font-black px-2.5 py-1 rounded-lg ${col.color}`}>
+                    {col.title}
+                  </span>
+                  <span className="text-xs font-mono font-bold text-slate-400">
+                    {colLeads.length}
+                  </span>
                 </div>
 
-                <div className="space-y-3 flex-1 overflow-y-auto max-h-[650px] pr-1">
+                <div className="space-y-3 flex-1 overflow-y-auto no-scrollbar">
                   {colLeads.length === 0 ? (
-                    <div className="py-8 text-center text-slate-400 text-xs italic">No leads in this stage</div>
+                    <div className="p-6 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
+                      Empty stage
+                    </div>
                   ) : (
                     colLeads.map(lead => {
-                      const waText = `Dear ${lead.owner_name} Ji (${lead.firm_name}), following up from AntFinserv regarding our discussion on corporate treasury and wealth solutions. Warm Regards, AntFinserv.com (ARN-94204)`;
+                      const waText = `Dear ${lead.owner_name},\n\nGreetings from Rana Sahib | AntFinServ.com.\n\nWarm Regards,\n+91 98727 00392`;
                       const waUrl = generateWhatsAppUrl(lead.mobile, waText);
 
                       return (
-                        <div key={lead.id} className="p-4 rounded-xl bg-white border border-slate-200 hover:border-blue-400 transition-all space-y-2.5 shadow-sm">
-                          <div className="flex items-start justify-between">
+                        <div
+                          key={lead.id}
+                          className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs hover:shadow-md transition-all space-y-2.5 group"
+                        >
+                          <div className="flex items-start justify-between gap-2">
                             <div>
                               <h4 className="font-bold text-slate-900 text-sm">{lead.firm_name}</h4>
                               <p className="text-xs text-slate-600 font-medium">
@@ -235,7 +251,19 @@ export const NewLeadsProspectsManager: React.FC<NewLeadsProspectsManagerProps> =
                             <a href={waUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-700 font-bold flex items-center gap-1 hover:underline">
                               <MessageSquare className="w-3.5 h-3.5" /> WhatsApp
                             </a>
-                            <span className="text-xs text-slate-400 font-mono">{lead.mobile}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-slate-400 font-mono">{lead.mobile}</span>
+                              {onDeleteLead && (
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteLead(lead.id)}
+                                  className="p-1 rounded text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="Delete Lead"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -250,7 +278,7 @@ export const NewLeadsProspectsManager: React.FC<NewLeadsProspectsManagerProps> =
 
       {/* Add Lead Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 max-w-xl w-full shadow-2xl space-y-5">
             <div className="flex items-center justify-between">
               <h3 className="text-lg md:text-xl font-black text-slate-900 flex items-center gap-2">
@@ -258,148 +286,112 @@ export const NewLeadsProspectsManager: React.FC<NewLeadsProspectsManagerProps> =
                 <span>Add New Lead / Prospect</span>
               </h3>
               <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                Quick Add: Name or Mobile is enough
+                Non-Mandatory Fields
               </span>
             </div>
 
-            <form onSubmit={handleSubmitNewLead} className="space-y-4 text-xs md:text-sm">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmitNewLead} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Company / Business Name (Optional)</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Company / Firm Name</label>
                   <input
                     type="text"
-                    placeholder="e.g. Apex Health Logistics or leave empty"
+                    placeholder="e.g. Goyal Sanitary Store"
                     value={newLead.firm_name}
-                    onChange={(e) => setNewLead({ ...newLead, firm_name: e.target.value })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
+                    onChange={e => setNewLead(prev => ({ ...prev, firm_name: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 font-medium"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Contact Person Name</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Owner / Contact Person</label>
                   <input
                     type="text"
-                    placeholder="e.g. Arpit Arora / Rajesh Khurana"
+                    placeholder="e.g. Ramesh Goyal"
                     value={newLead.owner_name}
-                    onChange={(e) => setNewLead({ ...newLead, owner_name: e.target.value })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
+                    onChange={e => setNewLead(prev => ({ ...prev, owner_name: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 font-medium"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Mobile Number (WhatsApp)</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Mobile Number (WhatsApp)</label>
                   <input
                     type="tel"
-                    placeholder="98XXXXXXXX"
+                    placeholder="10-digit mobile number"
                     value={newLead.mobile}
-                    onChange={(e) => setNewLead({ ...newLead, mobile: e.target.value })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500 font-mono"
+                    onChange={e => setNewLead(prev => ({ ...prev, mobile: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 font-mono font-medium"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Designation / Role (Optional)</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Location / City</label>
                   <input
                     type="text"
-                    placeholder="e.g. Investor / Managing Director"
-                    value={newLead.designation}
-                    onChange={(e) => setNewLead({ ...newLead, designation: e.target.value })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
+                    placeholder="e.g. Ludhiana, Gill Road"
+                    value={newLead.location}
+                    onChange={e => setNewLead(prev => ({ ...prev, location: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 font-medium"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Industry Sector</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Industry Sector</label>
                   <select
                     value={newLead.industry_sector}
-                    onChange={(e) => setNewLead({ ...newLead, industry_sector: e.target.value })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 font-medium focus:outline-none focus:border-blue-500"
+                    onChange={e => setNewLead(prev => ({ ...prev, industry_sector: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 font-medium bg-white"
                   >
-                    {INDUSTRY_SECTORS.map((ind) => (
-                      <option key={ind} value={ind}>{ind}</option>
+                    {INDUSTRY_SECTORS.map(sec => (
+                      <option key={sec} value={sec}>{sec}</option>
                     ))}
                   </select>
                 </div>
+
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Pipeline Stage</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Pipeline Stage</label>
                   <select
                     value={newLead.status}
-                    onChange={(e) => setNewLead({ ...newLead, status: e.target.value as Lead['status'] })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 font-medium focus:outline-none focus:border-blue-500"
+                    onChange={e => setNewLead(prev => ({ ...prev, status: e.target.value as any }))}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 font-medium bg-white"
                   >
-                    <option value="Cold Contact">Cold Outreach</option>
-                    <option value="Warm Lead">Warm Discussions</option>
-                    <option value="Negotiation Phase">Proposal & Structuring</option>
-                    <option value="Converted">Converted Client</option>
-                    <option value="Dropped">Dropped</option>
-                  </select>
-                </div>
-              </div>
-
-              {newLead.industry_sector === 'Other' && (
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Industry Remarks (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Cold Chain Storage & Automation"
-                    value={newLead.industry_remarks}
-                    onChange={(e) => setNewLead({ ...newLead, industry_remarks: e.target.value })}
-                    className="w-full p-2.5 rounded-xl border border-amber-300 bg-amber-50 text-slate-900 focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">City / Location</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Ludhiana / Chandigarh"
-                    value={newLead.location}
-                    onChange={(e) => setNewLead({ ...newLead, location: e.target.value })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Priority</label>
-                  <select
-                    value={newLead.priority}
-                    onChange={(e) => setNewLead({ ...newLead, priority: e.target.value as Lead['priority'] })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 font-medium focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="High">High</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Low">Low</option>
+                    {columns.map(c => (
+                      <option key={c.status} value={c.status}>{c.title}</option>
+                    ))}
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-600 font-semibold mb-1">Notes / Requirement Details</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Advisor Notes & Remarks</label>
                 <textarea
-                  rows={3}
-                  placeholder="Requirement details, treasury parking, insurance needs, or key notes..."
+                  rows={2}
+                  placeholder="Notes, discussion highlights, financial needs..."
                   value={newLead.notes}
-                  onChange={(e) => setNewLead({ ...newLead, notes: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
+                  onChange={e => setNewLead(prev => ({ ...prev, notes: e.target.value }))}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 font-medium"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 text-xs md:text-sm font-semibold text-slate-600 hover:text-slate-900"
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs md:text-sm shadow-sm"
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
-                  Save Prospect
+                  <Plus className="w-4 h-4" />
+                  <span>Save Lead to Pipeline</span>
                 </button>
               </div>
             </form>

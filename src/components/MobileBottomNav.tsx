@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Shield, Plus, Heart, ShieldCheck, Users } from 'lucide-react';
+import { LayoutDashboard, Shield, Plus, Heart, Newspaper } from 'lucide-react';
 
 interface MobileBottomNavProps {
   activeTab: string;
@@ -21,18 +21,39 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       {/* Cockpit */}
       <button
         onClick={() => setActiveTab('cockpit')}
-        className={`flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-all ${
-          activeTab === 'cockpit' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+        className={`flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-all cursor-pointer ${
+          activeTab === 'cockpit' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'
         }`}
       >
         <LayoutDashboard className="w-5 h-5" />
         <span className="text-[10px]">Cockpit</span>
       </button>
 
+      {/* Content Studio (Quick Festive Access) */}
+      <button
+        onClick={() => setActiveTab('content')}
+        className={`relative flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-all cursor-pointer ${
+          activeTab === 'content' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+        }`}
+      >
+        <Newspaper className="w-5 h-5" />
+        <span className="text-[10px]">Content</span>
+        <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+      </button>
+
+      {/* Central Floating Quick Action (+) Button */}
+      <button
+        onClick={onOpenQuickActions}
+        className="w-12 h-12 -mt-5 rounded-full bg-gradient-to-tr from-amber-500 to-amber-600 text-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/40 border-2 border-slate-950 active:scale-95 transition-all cursor-pointer"
+        title="Quick Add Action"
+      >
+        <Plus className="w-6 h-6 stroke-[2.5]" />
+      </button>
+
       {/* SIP Shield */}
       <button
         onClick={() => setActiveTab('shield')}
-        className={`relative flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-all ${
+        className={`relative flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-all cursor-pointer ${
           activeTab === 'shield' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'
         }`}
       >
@@ -45,30 +66,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         )}
       </button>
 
-      {/* Central Floating Quick Action (+) Button */}
-      <button
-        onClick={onOpenQuickActions}
-        className="w-12 h-12 -mt-5 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 flex items-center justify-center shadow-lg shadow-emerald-500/40 border-2 border-slate-950 active:scale-95 transition-all"
-        title="Quick Add Action"
-      >
-        <Plus className="w-6 h-6 stroke-[2.5]" />
-      </button>
-
-      {/* Protection Vault */}
-      <button
-        onClick={() => setActiveTab('protection')}
-        className={`flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-all ${
-          activeTab === 'protection' ? 'text-rose-400 font-bold' : 'text-slate-400 hover:text-slate-200'
-        }`}
-      >
-        <ShieldCheck className="w-5 h-5" />
-        <span className="text-[10px]">Vault</span>
-      </button>
-
       {/* Celebrations */}
       <button
         onClick={() => setActiveTab('celebrations')}
-        className={`relative flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-all ${
+        className={`relative flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-all cursor-pointer ${
           activeTab === 'celebrations' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'
         }`}
       >
