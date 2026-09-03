@@ -400,14 +400,16 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
   const handleDownloadPoster = async (post: ContentPost) => {
     setIsGeneratingPoster(true);
     try {
-      const dataUrl = await generateBrandedPosterDataUrl({
-        title: post.title,
-        headline: post.headline,
-        subheadline: post.subheadline,
-        category: post.category,
-        bannerType: post.bannerType,
-        customImageUrl: post.customImageUrl
-      });
+      let dataUrl = post.customImageUrl;
+      if (!dataUrl) {
+        dataUrl = await generateBrandedPosterDataUrl({
+          title: post.title,
+          headline: post.headline,
+          subheadline: post.subheadline,
+          category: post.category,
+          bannerType: post.bannerType
+        });
+      }
 
       const a = document.createElement('a');
       a.href = dataUrl;

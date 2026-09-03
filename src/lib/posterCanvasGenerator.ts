@@ -23,16 +23,12 @@ export async function generateBrandedPosterDataUrl(config: PosterConfig): Promis
   const ctx = canvas.getContext('2d');
   if (!ctx) return config.customImageUrl || '';
 
-  // 1. If creative image is provided:
+  // 1. If creative image is provided (already contains single footer):
   if (config.customImageUrl) {
     try {
       const customImg = await loadImage(config.customImageUrl);
-      // Draw the artwork on top
-      ctx.drawImage(customImg, 0, 0, size, 840);
-
-      // Assimilate the luxury footer strip at the bottom (covering y=840 to 1024)
-      await drawAssimilatedFooter(ctx, size);
-
+      // Draw the complete creative cleanly without appending a duplicate footer
+      ctx.drawImage(customImg, 0, 0, size, size);
       return canvas.toDataURL('image/jpeg', 0.96);
     } catch (e) {
       console.warn('Could not load custom image, falling back to template', e);
