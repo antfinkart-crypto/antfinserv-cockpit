@@ -12,11 +12,13 @@ import {
   Calendar,
   Eye,
   ExternalLink,
-  UserCheck
+  UserCheck,
+  Wand2
 } from 'lucide-react';
 import { ClientMasterRecord, Lead } from '../types';
 import { generateWhatsAppUrl } from '../lib/whatsAppRouter';
 import { generateBrandedPosterDataUrl, assimilateFooterOntoBase64 } from '../lib/posterCanvasGenerator';
+import { WatermarkRebranderModal } from './WatermarkRebranderModal';
 
 export interface ContentPost {
   id: string;
@@ -93,7 +95,28 @@ Every bite of makhan that little Krishna reached for added up to boundless stren
 This Janmashtami, take a cue from those small, joyful beginnings. Start your disciplined SIP today and let discipline shape a future as rich as your faith.`
   },
 
-  // 2. Events & Festivals
+  // 2. High-Impact Wealth Infographic (Micro-SIP Power)
+  {
+    id: 'EVT-DAILY-TEA-1CR',
+    title: 'Your Daily Tea Can Build ₹1 Crore! (Micro-SIP Power)',
+    category: 'Mutual Funds',
+    date: 'Viral Awareness Campaign',
+    tags: ['#PowerOfCompounding', '#DailySIP', '#TeaToCrorepati', '#FinancialFreedom'],
+    views: 3420,
+    bannerType: 'wealth',
+    headline: 'Your Daily Tea Can Build ₹1 Crore!',
+    subheadline: 'A daily SIP of just ₹40 could potentially grow into over ₹1 crore over the long term.',
+    customImageUrl: './daily-tea-1cr.jpg',
+    defaultCaption: `Did you know? Your daily cup of chai can make you a Crorepati! ☕💰✨
+
+Just ₹40 a day (approx ₹880/month) invested in a disciplined Mutual Fund SIP at 12% p.a. can grow into a staggering ₹1.04 CRORE corpus!
+
+Small habits. Monumental wealth. The magic of compounding works best when you start early and stay consistent.
+
+Ready to turn your pocket change into lasting financial freedom? Message me today to set up your automated micro-SIP!`
+  },
+
+  // 3. Events & Festivals
   {
     id: 'EVT-001',
     title: 'Parsi New Year: Navroz Mubarak!',
@@ -359,6 +382,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
   const [pushStatusMessage, setPushStatusMessage] = useState<string | null>(null);
   const [isUploadingCustom, setIsUploadingCustom] = useState(false);
   const [isGeneratingPoster, setIsGeneratingPoster] = useState(false);
+  const [isWatermarkModalOpen, setIsWatermarkModalOpen] = useState(false);
 
   // New Custom Post Form State
   const [newPostTitle, setNewPostTitle] = useState('');
@@ -528,13 +552,23 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
           </div>
         </div>
 
-        <button
-          onClick={() => setIsUploadingCustom(true)}
-          className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-xs transition-all border border-slate-700 flex-shrink-0 cursor-pointer"
-        >
-          <Plus className="w-4 h-4 text-amber-400" />
-          <span>+ Upload Custom Creative / Poster</span>
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => setIsWatermarkModalOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs md:text-sm flex items-center gap-2 shadow-md transition-all cursor-pointer active:scale-95"
+          >
+            <Wand2 className="w-4 h-4" />
+            <span>✨ AI Watermark Cleaner & Rebrander</span>
+          </button>
+
+          <button
+            onClick={() => setIsUploadingCustom(true)}
+            className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-xs transition-all border border-slate-700 cursor-pointer"
+          >
+            <Plus className="w-4 h-4 text-amber-400" />
+            <span>+ Upload Custom Poster</span>
+          </button>
+        </div>
       </div>
 
       {/* Category Pills & Search Toolbar */}
@@ -1027,6 +1061,13 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
           </div>
         </div>
       )}
+
+      {/* AI Watermark Cleaner & Rebrander Studio Modal */}
+      <WatermarkRebranderModal
+        isOpen={isWatermarkModalOpen}
+        onClose={() => setIsWatermarkModalOpen(false)}
+        onSaveToLibrary={(newPost) => setPosts(prev => [newPost, ...prev])}
+      />
     </div>
   );
 };
