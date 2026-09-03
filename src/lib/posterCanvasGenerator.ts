@@ -1,7 +1,7 @@
 /**
- * High-resolution 1080x1080 branded JPEG poster generator for WhatsApp & Social Media.
- * Assimilates the user's official AntFinServ footer strip across the bottom of every creative,
- * ensuring complete elimination of any third-party branding and 100% SEBI/AMFI regulatory compliance.
+ * High-resolution 1024x1024 branded JPEG poster generator for WhatsApp & Social Media.
+ * Automatically assimilates the official AntFinServ Luxury Footer Strip across the bottom
+ * of every creative, ensuring all SEBI/AMFI disclaimers are on the image itself.
  */
 
 export interface PosterConfig {
@@ -16,26 +16,26 @@ export interface PosterConfig {
 }
 
 export async function generateBrandedPosterDataUrl(config: PosterConfig): Promise<string> {
-  const size = 1080;
+  const size = 1024;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
   if (!ctx) return config.customImageUrl || '';
 
-  // 1. If custom image / creative is provided:
+  // 1. If creative image is provided:
   if (config.customImageUrl) {
     try {
       const customImg = await loadImage(config.customImageUrl);
-      // Draw the user's creative image cleanly to fill the canvas
-      ctx.drawImage(customImg, 0, 0, size, size);
+      // Draw the artwork on top
+      ctx.drawImage(customImg, 0, 0, size, 840);
 
-      // Assimilate the official AntFinServ footer strip image across the bottom (covering bottom 18%)
+      // Assimilate the luxury footer strip at the bottom (covering y=840 to 1024)
       await drawAssimilatedFooter(ctx, size);
 
       return canvas.toDataURL('image/jpeg', 0.96);
     } catch (e) {
-      console.warn('Could not load custom image, falling back', e);
+      console.warn('Could not load custom image, falling back to template', e);
       drawDefaultBackground(ctx, size, config);
       drawPosterContent(ctx, size, config);
       await drawAssimilatedFooter(ctx, size);
@@ -51,12 +51,30 @@ export async function generateBrandedPosterDataUrl(config: PosterConfig): Promis
   return canvas.toDataURL('image/jpeg', 0.95);
 }
 
+export async function assimilateFooterOntoBase64(imageBase64: string): Promise<string> {
+  const size = 1024;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return imageBase64;
+
+  try {
+    const userImg = await loadImage(imageBase64);
+    ctx.drawImage(userImg, 0, 0, size, 840);
+    await drawAssimilatedFooter(ctx, size);
+    return canvas.toDataURL('image/jpeg', 0.96);
+  } catch {
+    return imageBase64;
+  }
+}
+
 async function drawAssimilatedFooter(ctx: CanvasRenderingContext2D, size: number) {
   try {
     const footerImg = await loadImage('/footer-strip.jpg');
     // Footer card in footer-strip.jpg is between y=95 and y=435 (height = 340, width = 1024)
-    const footerHeight = Math.round(size * 0.185); // ~200px
-    const footerY = size - footerHeight;
+    const footerY = 840;
+    const footerHeight = 184;
 
     // Draw dark base
     ctx.fillStyle = '#060d1d';
@@ -99,12 +117,7 @@ function drawDefaultBackground(ctx: CanvasRenderingContext2D, size: number, conf
   ctx.strokeStyle = 'rgba(212, 175, 55, 0.15)';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(size / 2, size * 0.4, 380, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.strokeStyle = 'rgba(212, 175, 55, 0.08)';
-  ctx.beginPath();
-  ctx.arc(size / 2, size * 0.4, 440, 0, Math.PI * 2);
+  ctx.arc(size / 2, size * 0.38, 360, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
 }
@@ -114,42 +127,42 @@ function drawPosterContent(ctx: CanvasRenderingContext2D, size: number, config: 
   ctx.textAlign = 'center';
 
   // Category Tag at Top
-  ctx.font = 'bold 24px -apple-system, sans-serif';
+  ctx.font = 'bold 22px -apple-system, sans-serif';
   ctx.fillStyle = '#f59e0b';
-  ctx.fillText(config.category.toUpperCase(), size / 2, 120);
+  ctx.fillText(config.category.toUpperCase(), size / 2, 110);
 
   // Decorative Golden Sparkles
   ctx.fillStyle = '#d4af37';
-  ctx.font = '28px sans-serif';
-  ctx.fillText('✦   ✦   ✦', size / 2, 170);
+  ctx.font = '26px sans-serif';
+  ctx.fillText('✦   ✦   ✦', size / 2, 155);
 
   // Main Headline
-  ctx.font = '900 60px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  ctx.font = '900 56px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
   ctx.fillStyle = '#ffffff';
-  wrapText(ctx, config.headline, size / 2, 280, 880, 72);
+  wrapText(ctx, config.headline, size / 2, 260, 840, 68);
 
   // Subheadline / Meaningful Copy
-  ctx.font = '500 28px -apple-system, sans-serif';
+  ctx.font = '500 26px -apple-system, sans-serif';
   ctx.fillStyle = '#cbd5e1';
-  wrapText(ctx, config.subheadline, size / 2, 520, 840, 44);
+  wrapText(ctx, config.subheadline, size / 2, 500, 800, 42);
 
   // Central Wealth Banner
   ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-  roundRect(ctx, 140, 760, 800, 76, 20);
+  roundRect(ctx, 130, 740, 764, 70, 18);
   ctx.fill();
   ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  ctx.font = 'bold 24px -apple-system, sans-serif';
+  ctx.font = 'bold 22px -apple-system, sans-serif';
   ctx.fillStyle = '#fde68a';
-  ctx.fillText('PLANNING YOUR FINANCES. BUILDING YOUR WEALTH.', size / 2, 808);
+  ctx.fillText('PLANNING YOUR FINANCES. BUILDING YOUR WEALTH.', size / 2, 784);
 
   ctx.restore();
 }
 
 function drawFallbackFooterStrip(ctx: CanvasRenderingContext2D, size: number) {
-  const footerHeight = 160;
+  const footerHeight = 184;
   const footerY = size - footerHeight;
 
   ctx.save();
@@ -164,33 +177,33 @@ function drawFallbackFooterStrip(ctx: CanvasRenderingContext2D, size: number) {
   ctx.stroke();
 
   ctx.textAlign = 'left';
-  ctx.font = '900 30px -apple-system, sans-serif';
+  ctx.font = '900 28px -apple-system, sans-serif';
   ctx.fillStyle = '#ffffff';
   ctx.fillText('AntFinServ', 50, footerY + 44);
 
   ctx.fillStyle = '#f59e0b';
-  ctx.fillText('.com', 215, footerY + 44);
+  ctx.fillText('.com', 205, footerY + 44);
 
-  ctx.font = 'bold 16px -apple-system, sans-serif';
+  ctx.font = 'bold 15px -apple-system, sans-serif';
   ctx.fillStyle = '#94a3b8';
   ctx.fillText('AMFI REGD. MUTUAL FUND DISTRIBUTOR & SIFD', 50, footerY + 74);
 
   ctx.textAlign = 'right';
-  ctx.font = 'bold 22px -apple-system, sans-serif';
+  ctx.font = 'bold 20px -apple-system, sans-serif';
   ctx.fillStyle = '#fde68a';
   ctx.fillText('ARN-94204 • Rana Sahib', size - 50, footerY + 44);
 
-  ctx.font = 'bold 18px monospace';
+  ctx.font = 'bold 16px monospace';
   ctx.fillStyle = '#ffffff';
   ctx.fillText('📞 +91 98727 00392  |  🌐 antfinserv.com', size - 50, footerY + 74);
 
   ctx.textAlign = 'center';
-  ctx.font = '13px -apple-system, sans-serif';
+  ctx.font = '12px -apple-system, sans-serif';
   ctx.fillStyle = '#64748b';
   ctx.fillText(
     'Mutual Fund investments are subject to market risk. Read all scheme related documents carefully. | IRDAI Lic: 487 (Turtlemint POSP)',
     size / 2,
-    footerY + 124
+    footerY + 128
   );
 
   ctx.restore();
@@ -228,6 +241,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
   ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
 }
