@@ -19,6 +19,7 @@ import { localDb } from './lib/indexedDB';
 import { getSupabase } from './lib/supabase';
 import { calculateShieldAlerts } from './lib/sipShieldEngine';
 import { getCelebrationAlerts } from './lib/celebrationEngine';
+import seedData from './data/seedData.json';
 import {
   Client,
   ClientMasterRecord,
@@ -93,24 +94,42 @@ export const App: React.FC = () => {
 
       setClients(c);
 
-      // Auto-migrate legacy clients into client_master if empty
+      // Auto-migrate or Seed master records if empty
       let masterRecords = cm;
-      if (masterRecords.length === 0 && c.length > 0) {
-        masterRecords = c.map((legacyClient, idx) => ({
-          client_id: `antos_cli_migrated_${idx}_${legacyClient.pan_number || 'nopan'}`,
-          source_system: 'MANUAL',
-          pan: legacyClient.pan_number && legacyClient.pan_number !== 'PAN_NOT_PROVIDED' ? legacyClient.pan_number : null,
-          investor_name: legacyClient.full_name,
-          dob: legacyClient.dob || null,
-          gender: 'Not Specified',
-          mobile: legacyClient.mobile || '',
-          email: legacyClient.email || '',
-          mapping_role: 'Individual',
-          created_at: legacyClient.created_at || new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          data_quality_flags: legacyClient.pan_number ? [] : ['MISSING_PAN']
-        }));
-        await localDb.putMany('client_master', masterRecords);
+      if (masterRecords.length === 0) {
+        if (c.length > 0) {
+          masterRecords = c.map((legacyClient, idx) => ({
+            client_id: `antos_cli_migrated_${idx}_${legacyClient.pan_number || 'nopan'}`,
+            source_system: 'MANUAL',
+            pan: legacyClient.pan_number && legacyClient.pan_number !== 'PAN_NOT_PROVIDED' ? legacyClient.pan_number : null,
+            investor_name: legacyClient.full_name,
+            dob: legacyClient.dob || null,
+            gender: 'Not Specified',
+            mobile: legacyClient.mobile || '',
+            email: legacyClient.email || '',
+            mapping_role: 'Individual',
+            created_at: legacyClient.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            data_quality_flags: legacyClient.pan_number ? [] : ['MISSING_PAN']
+          }));
+        } else if (seedData.client_master && seedData.client_master.length > 0) {
+          masterRecords = seedData.client_master as ClientMasterRecord[];
+        }
+        if (masterRecords.length > 0) {
+          await localDb.putMany('client_master', masterRecords);
+        }
+      }
+
+      let currentLeads = l;
+      if (currentLeads.length === 0 && seedData.leads && seedData.leads.length > 0) {
+        currentLeads = seedData.leads as Lead[];
+        await localDb.putMany('leads', currentLeads);
+      }
+
+      let currentSips = s;
+      if (currentSips.length === 0 && seedData.sips && seedData.sips.length > 0) {
+        currentSips = seedData.sips as ActiveSip[];
+        await localDb.putMany('sips', currentSips);
       }
 
       setClientMaster(masterRecords);
@@ -119,9 +138,9 @@ export const App: React.FC = () => {
       setClientChangeLogs(logs.sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()));
 
       setHoldings(h);
-      setSips(s);
+      setSips(currentSips);
       setBatches(b);
-      setLeads(l);
+      setLeads(currentLeads);
       setPolicies(p);
     } catch (err) {
       console.error('Failed to load IndexedDB data', err);

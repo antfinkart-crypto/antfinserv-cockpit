@@ -67,7 +67,7 @@ export async function assimilateFooterOntoBase64(imageBase64: string): Promise<s
 
 async function drawAssimilatedFooter(ctx: CanvasRenderingContext2D, size: number) {
   try {
-    const footerImg = await loadImage('/footer-strip.jpg');
+    const footerImg = await loadImage('./footer-strip.jpg');
     // Footer card in footer-strip.jpg is between y=95 and y=435 (height = 340, width = 1024)
     const footerY = 840;
     const footerHeight = 184;

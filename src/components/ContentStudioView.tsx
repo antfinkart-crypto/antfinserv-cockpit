@@ -85,7 +85,7 @@ const BUILT_IN_POSTS: ContentPost[] = [
     bannerType: 'festive',
     headline: 'Happy Krishna Janmashtami!',
     subheadline: 'Just like how a little makhan built Krishna\'s strength bit by bit, a little SIP can build your family\'s lasting wealth.',
-    customImageUrl: '/janmashtami.jpg',
+    customImageUrl: './janmashtami.jpg',
     defaultCaption: `Happy Krishna Janmashtami! 🪈🦚✨
 
 Every bite of makhan that little Krishna reached for added up to boundless strength. Your wealth can grow the exact same way.
@@ -510,7 +510,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
         <div>
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-950 border border-amber-400/40 p-1 flex-shrink-0 shadow-xs flex items-center justify-center">
-              <img src="/emblem-logo.jpg" alt="AntFinServ" className="w-full h-full object-contain" />
+              <img src="./emblem-logo.jpg" alt="AntFinServ" className="w-full h-full object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -701,7 +701,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                       {activeModalPost.category}
                     </span>
                     <div className="w-9 h-9 rounded-xl overflow-hidden border border-amber-400/40 bg-slate-900 shadow-md">
-                      <img src="/emblem-logo.jpg" alt="AntFinServ" className="w-full h-full object-contain" />
+                      <img src="./emblem-logo.jpg" alt="AntFinServ" className="w-full h-full object-contain" />
                     </div>
                   </div>
 
