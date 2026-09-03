@@ -43,10 +43,8 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-[92vw] 2xl:max-w-[1780px] mx-auto px-3 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
         {/* Brand & AMFI ARN */}
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('cockpit')}>
-          <div className="w-9 h-9 md:w-11 md:h-11 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 p-0.5 shadow-md flex-shrink-0">
-            <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center font-black text-amber-400 text-sm tracking-tighter">
-              ANT
-            </div>
+          <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl overflow-hidden border border-amber-500/30 shadow-md flex-shrink-0 bg-slate-950">
+            <img src="/logo.png" alt="AntFinServ Mascot" className="w-full h-full object-cover" />
           </div>
           <div>
             <div className="flex items-center gap-2">
