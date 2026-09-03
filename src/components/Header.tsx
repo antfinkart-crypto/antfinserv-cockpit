@@ -11,6 +11,7 @@ interface HeaderProps {
   setActiveTab: (tab: string) => void;
   pendingShieldCount: number;
   todayCelebrationCount: number;
+  reviewQueueCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -22,11 +23,12 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
   pendingShieldCount,
-  todayCelebrationCount
+  todayCelebrationCount,
+  reviewQueueCount = 0
 }) => {
   const tabs = [
     { id: 'cockpit', label: 'Cockpit', icon: LayoutDashboard },
-    { id: 'client360', label: 'Client 360', icon: Users },
+    { id: 'client360', label: 'Client Master', icon: Users, badge: reviewQueueCount },
     { id: 'sips', label: 'Mutual Funds', icon: TrendingUp },
     { id: 'shield', label: 'SIP Shield', icon: Shield, badge: pendingShieldCount },
     { id: 'protection', label: 'Protection Vault', icon: ShieldCheck },

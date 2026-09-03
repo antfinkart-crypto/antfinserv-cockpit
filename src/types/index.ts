@@ -1,5 +1,118 @@
+export type SourceSystem = 'MFBOX' | 'MANUAL' | 'INSURANCE' | 'LOANS' | 'IMPORT' | 'OTHER';
+export type MappingRole = 'Head' | 'Member' | 'Individual';
+export type Gender = 'Male' | 'Female' | 'Other' | 'Not Specified';
+
+export type DataQualityFlag =
+  | 'MISSING_PAN'
+  | 'INVALID_PAN'
+  | 'MISSING_DOB'
+  | 'MISSING_MOBILE'
+  | 'INVALID_MOBILE'
+  | 'MISSING_EMAIL'
+  | 'INVALID_EMAIL'
+  | 'INCOMPLETE_ADDRESS'
+  | 'POTENTIAL_DUPLICATE'
+  | 'AMBIGUOUS_MATCH';
+
+export interface ClientMasterRecord {
+  // Identity & Source
+  client_id: string; // Immutable internal ANTOS identifier
+  source_system: SourceSystem; // e.g. 'MFBOX'
+  source_user_id?: string; // e.g. MFbox USERID
+  family_id?: string; // e.g. MFbox FAMILY ID (Household link, USERID ≠ FAMILY ID)
+  mapping_role: MappingRole; // Head, Member, Individual
+
+  // Core Identity
+  pan: string | null; // Uppercase 10 chars, or null if missing (e.g. minors). NEVER dummy!
+  investor_name: string; // Trimmed & normalized
+  dob: string | null; // Canonical YYYY-MM-DD
+  source_age?: number; // Preserved from export for audit only
+  gender: Gender;
+
+  // Contact Details
+  mobile: string; // Normalized 10-digit Indian mobile or international
+  email: string; // Lowercased, trimmed
+
+  // Address
+  address_line_1?: string;
+  address_line_2?: string;
+  address_line_3?: string;
+  city?: string;
+  pincode?: string;
+  state?: string;
+
+  // Business / Organization
+  branch?: string;
+  rm_name?: string;
+  associate_name?: string;
+  bse_nse_code?: string;
+  broker_code?: string;
+
+  // Wealth & Financial Metadata
+  aum?: number; // Authoritative or imported MF AUM
+  first_investment_date?: string;
+  created_date?: string;
+
+  // Internal Timestamps & Audit
+  created_at: string;
+  updated_at: string;
+  last_source_import_id?: string;
+  last_source_imported_at?: string;
+  is_manually_edited?: boolean;
+  data_quality_flags: DataQualityFlag[];
+
+  // Compatibility helpers (to seamlessly work where legacy Client was used)
+  pan_number?: string;
+  full_name?: string;
+  client_type?: string;
+}
+
+export interface ClientChangeLog {
+  id: string;
+  client_id: string;
+  field: string;
+  old_value: any;
+  new_value: any;
+  changed_at: string;
+  changed_by: string; // 'SYSTEM_IMPORT' | 'ADVISOR' | 'MANUAL_EDIT'
+  source: SourceSystem;
+  import_id?: string;
+}
+
+export interface ClientImportBatch {
+  import_id: string;
+  source_system: SourceSystem;
+  source_filename: string;
+  imported_at: string;
+  imported_by: string;
+  rows_processed: number;
+  new_count: number;
+  updated_count: number;
+  unchanged_count: number;
+  review_count: number;
+  error_count: number;
+  missing_pan_count: number;
+  missing_dob_count: number;
+  missing_mobile_count: number;
+  missing_email_count: number;
+  warnings: string[];
+}
+
+export interface AmbiguousClientMatch {
+  id: string;
+  import_id: string;
+  incoming_record: Partial<ClientMasterRecord>;
+  existing_matches: ClientMasterRecord[];
+  reason: string;
+  created_at: string;
+  status: 'PENDING' | 'MERGED' | 'CREATED_AS_NEW' | 'DISMISSED';
+  resolved_at?: string;
+  resolved_by?: string;
+}
+
 export interface Client {
   id?: string;
+  client_id?: string;
   pan_number: string;
   full_name: string;
   mobile: string;

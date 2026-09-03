@@ -7,7 +7,80 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. Clients Master Table
+-- 1. ANTOS Client Master (Authoritative Central Identity)
+CREATE TABLE IF NOT EXISTS client_master (
+    client_id VARCHAR(100) PRIMARY KEY,
+    source_system VARCHAR(50) DEFAULT 'MFBOX',
+    source_user_id VARCHAR(100),
+    family_id VARCHAR(100),
+    mapping_role VARCHAR(50) DEFAULT 'Individual', -- 'Head', 'Member', 'Individual'
+    pan VARCHAR(10), -- Nullable for minors! Zero dummy PAN rule.
+    investor_name VARCHAR(255) NOT NULL,
+    dob DATE,
+    source_age INT,
+    gender VARCHAR(20) DEFAULT 'Not Specified',
+    mobile VARCHAR(20),
+    email VARCHAR(255),
+    address_line_1 TEXT,
+    address_line_2 TEXT,
+    address_line_3 TEXT,
+    city VARCHAR(100),
+    pincode VARCHAR(20),
+    state VARCHAR(100),
+    branch VARCHAR(100),
+    rm_name VARCHAR(150),
+    associate_name VARCHAR(150),
+    bse_nse_code VARCHAR(100),
+    broker_code VARCHAR(100),
+    aum NUMERIC(14, 2) DEFAULT 0.00,
+    first_investment_date DATE,
+    created_date DATE,
+    is_manually_edited BOOLEAN DEFAULT FALSE,
+    data_quality_flags JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Partial Unique Index on PAN (enforces uniqueness ONLY when non-null)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_client_master_pan ON client_master(pan) WHERE pan IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_client_master_family_id ON client_master(family_id);
+CREATE INDEX IF NOT EXISTS idx_client_master_source_user ON client_master(source_user_id);
+CREATE INDEX IF NOT EXISTS idx_client_master_mobile ON client_master(mobile);
+
+-- 1B. Client Audit History
+CREATE TABLE IF NOT EXISTS client_audit_history (
+    id VARCHAR(100) PRIMARY KEY,
+    client_id VARCHAR(100) REFERENCES client_master(client_id) ON DELETE CASCADE,
+    field VARCHAR(100) NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    changed_at TIMESTAMPTZ DEFAULT NOW(),
+    changed_by VARCHAR(100),
+    source VARCHAR(50),
+    import_id VARCHAR(100)
+);
+
+-- 1C. Client Import History
+CREATE TABLE IF NOT EXISTS client_import_history (
+    import_id VARCHAR(100) PRIMARY KEY,
+    source_system VARCHAR(50) DEFAULT 'MFBOX',
+    source_filename VARCHAR(255) NOT NULL,
+    imported_at TIMESTAMPTZ DEFAULT NOW(),
+    imported_by VARCHAR(100),
+    rows_processed INT DEFAULT 0,
+    new_count INT DEFAULT 0,
+    updated_count INT DEFAULT 0,
+    unchanged_count INT DEFAULT 0,
+    review_count INT DEFAULT 0,
+    error_count INT DEFAULT 0,
+    missing_pan_count INT DEFAULT 0,
+    missing_dob_count INT DEFAULT 0,
+    missing_mobile_count INT DEFAULT 0,
+    missing_email_count INT DEFAULT 0,
+    warnings JSONB DEFAULT '[]'::jsonb
+);
+
+-- 1D. Legacy Clients Table (preserved for backward compatibility)
 CREATE TABLE IF NOT EXISTS clients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pan_number VARCHAR(10) UNIQUE NOT NULL,
@@ -15,7 +88,7 @@ CREATE TABLE IF NOT EXISTS clients (
     mobile VARCHAR(15) NOT NULL,
     email VARCHAR(255),
     firm_name VARCHAR(255),
-    client_type VARCHAR(50) DEFAULT 'Retail', -- 'Retail' or 'B2B Merchant'
+    client_type VARCHAR(50) DEFAULT 'Retail',
     dob DATE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()

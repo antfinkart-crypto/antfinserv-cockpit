@@ -1,4 +1,4 @@
-import { Client, ProtectionAsset, CelebrationAlert } from '../types';
+import { Client, ClientMasterRecord, ProtectionAsset, CelebrationAlert } from '../types';
 
 /**
  * Celebration & Relationship Intelligence Engine
@@ -37,7 +37,7 @@ export function parseDateOfBirth(dobStr: string | null | undefined): { day: numb
 }
 
 export function getCelebrationAlerts(
-  clients: Client[],
+  clients: (Client | ClientMasterRecord)[],
   policies: ProtectionAsset[],
   baseDate: Date = new Date()
 ): CelebrationAlert[] {
@@ -55,7 +55,7 @@ export function getCelebrationAlerts(
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // 1. Scan Clients Master
+  // 1. Scan Clients Master (Each person evaluated once)
   clients.forEach(c => {
     if (!c.dob) return;
     const parsed = parseDateOfBirth(c.dob);
@@ -64,10 +64,13 @@ export function getCelebrationAlerts(
     const daysUntil = getDaysUntil(parsed.day, parsed.month);
     if (daysUntil <= 30) {
       const age = parsed.year ? baseDate.getFullYear() - parsed.year : undefined;
+      const clientName = ('investor_name' in c && c.investor_name) ? c.investor_name : (c as Client).full_name;
+      const keyId = ('client_id' in c && c.client_id) ? c.client_id : ((c as any).pan || (c as any).pan_number || clientName);
+
       alerts.push({
-        id: `client-${c.pan_number}`,
-        client_name: c.full_name,
-        celebrant_name: c.full_name,
+        id: `client-${keyId}`,
+        client_name: clientName,
+        celebrant_name: clientName,
         relationship: 'Self',
         dob: c.dob,
         mobile: c.mobile,
