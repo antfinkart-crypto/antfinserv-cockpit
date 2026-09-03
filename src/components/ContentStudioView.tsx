@@ -12,7 +12,8 @@ import {
   Calendar,
   Eye,
   ExternalLink,
-  UserCheck
+  UserCheck,
+  Image as ImageIcon
 } from 'lucide-react';
 import { ClientMasterRecord, Lead } from '../types';
 import { generateWhatsAppUrl } from '../lib/whatsAppRouter';
@@ -49,6 +50,35 @@ const SIGNUP_SECTION = `🚀 JOIN OUR INVESTOR COMMUNITY & START INVESTING:
 
 🌐 Explore Our Portal: https://antfinserv.com`;
 
+/**
+ * Ensures that EVERY message sent or copied ALWAYS has the salutation,
+ * the community signup link, the website link, and the full SEBI disclaimers.
+ */
+export function formatFullWhatsAppMessage(rawCaption: string, clientName?: string): string {
+  let cleaned = rawCaption.trim();
+
+  // Strip out old/incomplete disclaimers if any were partially present
+  const hasSignup = cleaned.includes('https://antfinserv.themfbox.com/signup');
+  const hasDisclaimer = cleaned.includes('STATUTORY REGULATORY DISCLAIMERS') || cleaned.includes('AMFI Regd. Mutual Fund Distributor');
+
+  if (!hasSignup) {
+    cleaned += `\n\n${SIGNUP_SECTION}`;
+  }
+
+  if (!hasDisclaimer) {
+    cleaned += `\n\n${REGULATORY_FOOTER}`;
+  }
+
+  if (clientName && clientName.trim()) {
+    // Only prepend if not already starting with Dear
+    if (!cleaned.startsWith('Dear ')) {
+      cleaned = `Dear ${clientName.trim()},\n\n${cleaned}`;
+    }
+  }
+
+  return cleaned;
+}
+
 const BUILT_IN_POSTS: ContentPost[] = [
   // 1. Featured Janmashtami Pilot Creative (TOMORROW)
   {
@@ -64,16 +94,9 @@ const BUILT_IN_POSTS: ContentPost[] = [
     customImageUrl: '/janmashtami.jpg',
     defaultCaption: `Happy Krishna Janmashtami! 🪈🦚✨
 
-On this sacred and joyous occasion of Shri Krishna Janmashtami, may Lord Krishna bless you and your family with boundless joy, vibrant health, peace of mind, and ever-growing prosperity!
+Every bite of makhan that little Krishna reached for added up to boundless strength. Your wealth can grow the exact same way.
 
-💡 The Wise Wisdom of Janmashtami:
-Just like how a little makhan built Krishna's strength bit by bit, small and consistent monthly SIPs build insurmountable wealth and security for your family over time.
-
-Start your auspicious wealth journey with AntFinServ on this blessed occasion:
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+This Janmashtami, take a cue from those small, joyful beginnings. Start your disciplined SIP today and let compounding shape a future as rich as your faith.`
   },
 
   // 2. Events & Festivals
@@ -91,11 +114,7 @@ ${REGULATORY_FOOTER}`
 
 May Navroz bring joy, abundance, prosperity, and togetherness to your home and loved ones.
 
-Navroz Mubarak! 
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+Navroz Mubarak!`
   },
   {
     id: 'EVT-002',
@@ -111,11 +130,7 @@ ${REGULATORY_FOOTER}`
 
 Beyond traditional promises, the greatest gift you can give your sibling is lifelong financial security. Start a disciplined SIP in their name or ensure your family has comprehensive health coverage.
 
-Celebrate the eternal bond with peace of mind.
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+Celebrate the eternal bond with peace of mind.`
   },
   {
     id: 'EVT-003',
@@ -129,11 +144,7 @@ ${REGULATORY_FOOTER}`
     subheadline: 'Just like a good harvest rewards patient care, consistent investing turns small seeds into lifelong wealth.',
     defaultCaption: `Wishing you and your family a joyous and prosperous Onam! 🌾
 
-May King Mahabali bless your home with good health, unshakeable peace, and blossoming prosperity. Harvest your wealth with patience and discipline.
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+May King Mahabali bless your home with good health, unshakeable peace, and blossoming prosperity. Harvest your wealth with patience and discipline.`
   },
   {
     id: 'EVT-004',
@@ -147,11 +158,7 @@ ${REGULATORY_FOOTER}`
     subheadline: 'May the teachings of compassion, peace, and patience guide our thoughts, actions, and family decisions.',
     defaultCaption: `Eid Milad-un-Nabi Mubarak! 🌙
 
-May peace, harmony, divine blessings, and good fortune fill your home today and always.
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+May peace, harmony, divine blessings, and good fortune fill your home today and always.`
   },
   {
     id: 'EVT-005',
@@ -165,11 +172,7 @@ ${REGULATORY_FOOTER}`
     subheadline: 'In sports or in wealth creation, consistency beats talent. A regular monthly SIP compounds into victory.',
     defaultCaption: `Happy National Sports Day! 🏆
 
-Champions aren't made in a day—they are built with daily practice, grit, and discipline. Wealth creation follows the exact same rule: small, unbroken monthly SIPs create extraordinary financial champions!
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+Champions aren't made in a day—they are built with daily practice, grit, and discipline. Wealth creation follows the exact same rule: small, unbroken monthly SIPs create extraordinary financial champions!`
   },
   {
     id: 'EVT-006',
@@ -183,11 +186,7 @@ ${REGULATORY_FOOTER}`
     subheadline: 'Celebrating a generation that understood saving before it was trendy. Plan a peaceful, independent retirement.',
     defaultCaption: `Happy World Senior Citizens' Day! 🌺
 
-To the elders who built our foundations with wisdom and hard work: may your golden years be filled with good health, joyful companionship, and independent financial dignity through guaranteed cash flows and SWP plans.
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+To the elders who built our foundations with wisdom and hard work: may your golden years be filled with good health, joyful companionship, and independent financial dignity through guaranteed cash flows and SWP plans.`
   },
 
   // 3. Birthdays & Celebrations
@@ -205,11 +204,7 @@ ${REGULATORY_FOOTER}`
 
 May this special day mark the beginning of an extraordinary year blessed with good health, peace of mind, family happiness, and rising prosperity.
 
-It is our privilege to walk alongside you on your wealth-building journey!
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+It is our privilege to walk alongside you on your wealth-building journey!`
   },
   {
     id: 'CEL-002',
@@ -225,11 +220,7 @@ ${REGULATORY_FOOTER}`
 
 May your bond grow stronger with each passing year, and may your shared dreams of family, travel, and financial freedom blossom into reality.
 
-Wishing you endless happiness and lasting wealth!
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+Wishing you endless happiness and lasting wealth!`
   },
 
   // 4. Mutual Funds & SIP Wealth
@@ -247,11 +238,7 @@ ${REGULATORY_FOOTER}`
 
 Education inflation in India is running at 10-12% per year. A 4-year degree costing ₹25L today will cost over ₹60L in 10 years!
 
-Don't let finances hold your child back. Start a targeted Education Wealth SIP today.
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+Don't let finances hold your child back. Start a targeted Education Wealth SIP today.`
   },
   {
     id: 'MF-002',
@@ -270,11 +257,7 @@ ${REGULATORY_FOOTER}`
   ➔ ₹32 Lakhs in 10 Years
   ➔ ₹1.5 Crore+ in 20 Years!
 
-The best time to start was yesterday. The second best time is right now.
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+The best time to start was yesterday. The second best time is right now.`
   },
   {
     id: 'MF-003',
@@ -292,11 +275,7 @@ Do you know the exact XIRR of your Mutual Fund portfolio after accounting for ta
 
 Holding 20 different schemes doesn't mean diversification—it often means duplicate portfolios and diluted returns.
 
-Get a complimentary 360° Portfolio Health Audit from AntFinServ:
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+Get a complimentary 360° Portfolio Health Audit from AntFinServ.`
   },
   {
     id: 'MF-004',
@@ -314,11 +293,7 @@ Cutting just ONE unnecessary ₹8,000 outing per month and redirecting it into a
 ➔ ₹18.5 Lakhs in 10 Years
 ➔ ₹40+ Lakhs in 15 Years!
 
-Live well today, and live abundantly tomorrow.
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+Live well today, and live abundantly tomorrow.`
   },
 
   // 5. Health Insurance
@@ -334,11 +309,7 @@ ${REGULATORY_FOOTER}`
     subheadline: 'Anyone can sell you a policy. We stand with you during hospitalisation and claim settlement.',
     defaultCaption: `Medical emergencies are stressful enough. Paperwork shouldn't add to your worries. 🏥
 
-At AntFinServ, we don't just help you choose the right health cover; our dedicated claims advocacy desk coordinates with TPAs and insurers to ensure cashless approvals and smooth reimbursements.
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+At AntFinServ, we don't just help you choose the right health cover; our dedicated claims advocacy desk coordinates with TPAs and insurers to ensure cashless approvals and smooth reimbursements.`
   },
 
   // 6. Home Loans
@@ -359,11 +330,7 @@ Before switching banks, always verify:
 2. Your true remaining tenure (which may have quietly stretched!)
 3. Your exact break-even period
 
-Get an institutional-grade, zero-pressure Balance Transfer Audit from AntFinServ:
-
-${SIGNUP_SECTION}
-
-${REGULATORY_FOOTER}`
+Get an institutional-grade, zero-pressure Balance Transfer Audit from AntFinServ.`
   }
 ];
 
@@ -380,7 +347,9 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
       const saved = localStorage.getItem('antfinserv_custom_posters');
       if (saved) {
         const parsed = JSON.parse(saved);
-        return [...parsed, ...BUILT_IN_POSTS];
+        // Clean and ensure featured Janmashtami takes precedence
+        const filteredCustom = parsed.filter((p: ContentPost) => !p.id.includes('JANMASHTAMI'));
+        return [...filteredCustom, ...BUILT_IN_POSTS];
       }
     } catch {
       // ignore
@@ -392,6 +361,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
   const [selectedClientName, setSelectedClientName] = useState<string>('');
   const [selectedClientPhone, setSelectedClientPhone] = useState<string>('');
   const [copiedPostId, setCopiedPostId] = useState<string | null>(null);
+  const [copiedImageStatus, setCopiedImageStatus] = useState<string | null>(null);
   const [isUploadingCustom, setIsUploadingCustom] = useState(false);
   const [isGeneratingPoster, setIsGeneratingPoster] = useState(false);
 
@@ -426,22 +396,64 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
   });
 
   const handleCopyCaption = (post: ContentPost) => {
-    let text = post.defaultCaption;
-    if (selectedClientName) {
-      text = `Dear ${selectedClientName},\n\n${text}`;
-    }
-    navigator.clipboard.writeText(text);
+    const fullText = formatFullWhatsAppMessage(post.defaultCaption, selectedClientName);
+    navigator.clipboard.writeText(fullText);
     setCopiedPostId(post.id);
     setTimeout(() => setCopiedPostId(null), 2500);
   };
 
-  const handlePushWhatsApp = (post: ContentPost) => {
-    let text = post.defaultCaption;
-    if (selectedClientName) {
-      text = `Dear ${selectedClientName},\n\n${text}`;
+  const handleCopyImageToClipboard = async (post: ContentPost) => {
+    setCopiedImageStatus('Copying...');
+    try {
+      const dataUrl = await generateBrandedPosterDataUrl({
+        title: post.title,
+        headline: post.headline,
+        subheadline: post.subheadline,
+        category: post.category,
+        bannerType: post.bannerType,
+        customImageUrl: post.customImageUrl
+      });
+
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      // Write image to clipboard
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+      setCopiedImageStatus('Image Copied! Press Ctrl+V in WhatsApp');
+      setTimeout(() => setCopiedImageStatus(null), 4000);
+    } catch (e) {
+      console.warn('Could not copy image to clipboard', e);
+      // Fallback: download the image
+      handleDownloadPoster(post);
+      setCopiedImageStatus('Image Downloaded (Attach in WhatsApp)');
+      setTimeout(() => setCopiedImageStatus(null), 4000);
+    }
+  };
+
+  const handlePushWhatsApp = async (post: ContentPost) => {
+    const fullText = formatFullWhatsAppMessage(post.defaultCaption, selectedClientName);
+
+    // Try to copy the image to clipboard so the user can easily Ctrl+V into WhatsApp
+    try {
+      const dataUrl = await generateBrandedPosterDataUrl({
+        title: post.title,
+        headline: post.headline,
+        subheadline: post.subheadline,
+        category: post.category,
+        bannerType: post.bannerType,
+        customImageUrl: post.customImageUrl
+      });
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+    } catch {
+      // ignore
     }
 
-    const url = generateWhatsAppUrl(selectedClientPhone || '', text);
+    const url = generateWhatsAppUrl(selectedClientPhone || '', fullText);
     window.open(url, '_blank');
   };
 
@@ -484,7 +496,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
   const handleSaveCustomPost = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPostTitle) {
-      alert('Please enter a title for the event poster.');
+      alert('Please enter a title for the event creative.');
       return;
     }
 
@@ -507,9 +519,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
           : 'wealth',
       headline: newPostHeadline || newPostTitle,
       subheadline: newPostSubheadline || 'Personalized greetings and financial insights from AntFinServ.',
-      defaultCaption:
-        newPostCaption ||
-        `${newPostHeadline || newPostTitle}\n\n${newPostSubheadline}\n\n${SIGNUP_SECTION}\n\n${REGULATORY_FOOTER}`,
+      defaultCaption: newPostCaption || `${newPostHeadline || newPostTitle}\n\n${newPostSubheadline}`,
       customImageUrl: newPostImageBase64 || undefined,
       isCustom: true
     };
@@ -517,7 +527,6 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
     const updated = [customPost, ...posts];
     setPosts(updated);
 
-    // Persist custom posts
     try {
       const customOnly = updated.filter(p => p.isCustom);
       localStorage.setItem('antfinserv_custom_posters', JSON.stringify(customOnly));
@@ -525,7 +534,6 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
       // ignore
     }
 
-    // Reset and close
     setIsUploadingCustom(false);
     setNewPostTitle('');
     setNewPostHeadline('');
@@ -624,7 +632,6 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
               onClick={() => setActiveModalPost(post)}
               className="h-56 relative overflow-hidden bg-slate-950 p-5 flex flex-col justify-between cursor-pointer"
             >
-              {/* If custom image, show it CLEANLY */}
               {post.customImageUrl ? (
                 <img
                   src={post.customImageUrl}
@@ -668,7 +675,6 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                 </>
               )}
 
-              {/* Subtle top pill on image */}
               {post.customImageUrl && (
                 <div className="relative z-10 flex items-center justify-between pointer-events-none">
                   <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded bg-black/60 text-amber-300 backdrop-blur-xs border border-amber-400/40">
@@ -714,9 +720,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setActiveModalPost(post);
-                  }}
+                  onClick={() => setActiveModalPost(post)}
                   className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
                 >
                   <Phone className="w-3.5 h-3.5" />
@@ -735,14 +739,16 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6">
           <div className="bg-white text-slate-900 w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col md:flex-row my-auto max-h-[95vh]">
             
-            {/* Left: Pure, Uncluttered Artwork Preview */}
+            {/* Left: Pure, Assimilated Artwork Preview */}
             <div className="md:w-1/2 bg-slate-950 relative overflow-hidden min-h-[380px] md:min-h-[520px] flex items-center justify-center p-4">
               {activeModalPost.customImageUrl ? (
-                <img
-                  src={activeModalPost.customImageUrl}
-                  alt={activeModalPost.title}
-                  className="w-full h-full max-h-[500px] object-contain rounded-2xl shadow-xl"
-                />
+                <div className="w-full h-full flex flex-col justify-center items-center relative">
+                  <img
+                    src={activeModalPost.customImageUrl}
+                    alt={activeModalPost.title}
+                    className="w-full max-h-[500px] object-contain rounded-2xl shadow-xl border border-slate-800"
+                  />
+                </div>
               ) : (
                 <div className="w-full h-full p-6 flex flex-col justify-between">
                   <div className="flex items-center justify-between">
@@ -894,25 +900,26 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                   </div>
                 </div>
 
-                {/* Formatted Message Draft */}
+                {/* Formatted Message Draft (GUARANTEED SIGNATURE + SEBI DISCLAIMERS) */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      WhatsApp Message Draft:
+                      WhatsApp Message Draft (Full Verified Output):
                     </span>
                     <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded">
-                      ✓ SEBI Disclaimers Included
+                      ✓ SEBI Disclaimers & Signup Link Included
                     </span>
                   </div>
-                  <div className="max-h-44 overflow-y-auto p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 whitespace-pre-wrap leading-relaxed font-sans">
-                    {selectedClientName && (
-                      <span className="font-bold text-amber-900 block mb-1">
-                        Dear {selectedClientName},
-                      </span>
-                    )}
-                    {activeModalPost.defaultCaption}
+                  <div className="max-h-48 overflow-y-auto p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 whitespace-pre-wrap leading-relaxed font-sans select-all">
+                    {formatFullWhatsAppMessage(activeModalPost.defaultCaption, selectedClientName)}
                   </div>
                 </div>
+
+                {copiedImageStatus && (
+                  <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold text-center">
+                    {copiedImageStatus}
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -926,21 +933,30 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                   <span>Send via WhatsApp 1-to-1</span>
                 </button>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyImageToClipboard(activeModalPost)}
+                    className="py-2 px-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-[11px] flex items-center justify-center gap-1 transition-all cursor-pointer"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>Copy Image</span>
+                  </button>
+
                   <button
                     type="button"
                     disabled={isGeneratingPoster}
                     onClick={() => handleDownloadPoster(activeModalPost)}
-                    className="py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                    className="py-2 px-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] flex items-center justify-center gap-1 shadow-xs transition-all cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>{isGeneratingPoster ? 'Generating...' : 'Download Image'}</span>
+                    <span>{isGeneratingPoster ? 'Working...' : 'Download'}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleCopyCaption(activeModalPost)}
-                    className="py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    className="py-2 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] flex items-center justify-center gap-1 transition-all cursor-pointer"
                   >
                     {copiedPostId === activeModalPost.id ? (
                       <>
@@ -950,7 +966,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                     ) : (
                       <>
                         <Copy className="w-3.5 h-3.5 text-slate-600" />
-                        <span>Copy Message</span>
+                        <span>Copy Text</span>
                       </>
                     )}
                   </button>
@@ -1027,7 +1043,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Upload Creative Image File (Artwork will remain pristine with zero text overlay)
+                  Upload Creative Image File (Will automatically assimilate AntFinServ footer strip)
                 </label>
                 <input
                   type="file"
@@ -1048,7 +1064,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="Enter message text... (Signup link & SEBI disclaimers will be automatically attached)"
+                  placeholder="Enter message text... (Community signup link & SEBI disclaimers will be attached automatically)"
                   value={newPostCaption}
                   onChange={e => setNewPostCaption(e.target.value)}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 font-medium"

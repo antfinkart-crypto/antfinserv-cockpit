@@ -1,7 +1,7 @@
 /**
  * High-resolution 1080x1080 branded JPEG poster generator for WhatsApp & Social Media.
- * When a custom image / artwork is provided, it NEVER overlays text across the image!
- * Includes statutory SEBI / AMFI / IRDAI regulatory footer.
+ * Assimilates the user's official AntFinServ footer strip across the bottom of every creative,
+ * ensuring complete elimination of any third-party branding and 100% SEBI/AMFI regulatory compliance.
  */
 
 export interface PosterConfig {
@@ -10,7 +10,6 @@ export interface PosterConfig {
   subheadline: string;
   category: string;
   themeColor?: string;
-  bgGradient?: [string, string, string];
   bannerType?: 'festive' | 'wealth' | 'protection' | 'loan' | 'celebration';
   clientName?: string;
   customImageUrl?: string;
@@ -31,14 +30,15 @@ export async function generateBrandedPosterDataUrl(config: PosterConfig): Promis
       // Draw the user's creative image cleanly to fill the canvas
       ctx.drawImage(customImg, 0, 0, size, size);
 
-      // CRITICAL: DO NOT overlay drawPosterContent!
-      // The artwork already contains all headings, quotes, and visuals!
+      // Assimilate the official AntFinServ footer strip image across the bottom (covering bottom 18%)
+      await drawAssimilatedFooter(ctx, size);
+
       return canvas.toDataURL('image/jpeg', 0.96);
     } catch (e) {
-      console.warn('Could not load custom image, falling back to procedural generation', e);
+      console.warn('Could not load custom image, falling back', e);
       drawDefaultBackground(ctx, size, config);
       drawPosterContent(ctx, size, config);
-      drawFooterStrip(ctx, size);
+      await drawAssimilatedFooter(ctx, size);
       return canvas.toDataURL('image/jpeg', 0.95);
     }
   }
@@ -46,9 +46,27 @@ export async function generateBrandedPosterDataUrl(config: PosterConfig): Promis
   // 2. Procedural Template Card (for cards without an uploaded image)
   drawDefaultBackground(ctx, size, config);
   drawPosterContent(ctx, size, config);
-  drawFooterStrip(ctx, size);
+  await drawAssimilatedFooter(ctx, size);
 
   return canvas.toDataURL('image/jpeg', 0.95);
+}
+
+async function drawAssimilatedFooter(ctx: CanvasRenderingContext2D, size: number) {
+  try {
+    const footerImg = await loadImage('/footer-strip.jpg');
+    // Footer card in footer-strip.jpg is between y=95 and y=435 (height = 340, width = 1024)
+    const footerHeight = Math.round(size * 0.185); // ~200px
+    const footerY = size - footerHeight;
+
+    // Draw dark base
+    ctx.fillStyle = '#060d1d';
+    ctx.fillRect(0, footerY, size, footerHeight);
+
+    // Draw the luxury card cropped from footer-strip.jpg
+    ctx.drawImage(footerImg, 0, 95, 1024, 340, 0, footerY, size, footerHeight);
+  } catch {
+    drawFallbackFooterStrip(ctx, size);
+  }
 }
 
 function drawDefaultBackground(ctx: CanvasRenderingContext2D, size: number, config: PosterConfig) {
@@ -70,7 +88,6 @@ function drawDefaultBackground(ctx: CanvasRenderingContext2D, size: number, conf
     grad.addColorStop(0.5, '#0b132b');
     grad.addColorStop(1, '#1e293b');
   } else {
-    // celebration
     grad.addColorStop(0, '#1c1917');
     grad.addColorStop(0.5, '#2e1065');
     grad.addColorStop(1, '#090d16');
@@ -78,17 +95,16 @@ function drawDefaultBackground(ctx: CanvasRenderingContext2D, size: number, conf
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, size, size);
 
-  // Decorative gold circles / geometric aura
   ctx.save();
   ctx.strokeStyle = 'rgba(212, 175, 55, 0.15)';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(size / 2, size * 0.42, 380, 0, Math.PI * 2);
+  ctx.arc(size / 2, size * 0.4, 380, 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.strokeStyle = 'rgba(212, 175, 55, 0.08)';
   ctx.beginPath();
-  ctx.arc(size / 2, size * 0.42, 440, 0, Math.PI * 2);
+  ctx.arc(size / 2, size * 0.4, 440, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
 }
@@ -108,18 +124,18 @@ function drawPosterContent(ctx: CanvasRenderingContext2D, size: number, config: 
   ctx.fillText('✦   ✦   ✦', size / 2, 170);
 
   // Main Headline
-  ctx.font = '900 62px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  ctx.font = '900 60px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
   ctx.fillStyle = '#ffffff';
-  wrapText(ctx, config.headline, size / 2, 290, 880, 74);
+  wrapText(ctx, config.headline, size / 2, 280, 880, 72);
 
   // Subheadline / Meaningful Copy
-  ctx.font = '500 30px -apple-system, sans-serif';
+  ctx.font = '500 28px -apple-system, sans-serif';
   ctx.fillStyle = '#cbd5e1';
-  wrapText(ctx, config.subheadline, size / 2, 530, 840, 46);
+  wrapText(ctx, config.subheadline, size / 2, 520, 840, 44);
 
   // Central Wealth Banner
   ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-  roundRect(ctx, 140, 780, 800, 80, 20);
+  roundRect(ctx, 140, 760, 800, 76, 20);
   ctx.fill();
   ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)';
   ctx.lineWidth = 1.5;
@@ -127,16 +143,15 @@ function drawPosterContent(ctx: CanvasRenderingContext2D, size: number, config: 
 
   ctx.font = 'bold 24px -apple-system, sans-serif';
   ctx.fillStyle = '#fde68a';
-  ctx.fillText('PLANNING YOUR FINANCES. BUILDING YOUR WEALTH.', size / 2, 830);
+  ctx.fillText('PLANNING YOUR FINANCES. BUILDING YOUR WEALTH.', size / 2, 808);
 
   ctx.restore();
 }
 
-function drawFooterStrip(ctx: CanvasRenderingContext2D, size: number) {
-  const footerHeight = 150;
+function drawFallbackFooterStrip(ctx: CanvasRenderingContext2D, size: number) {
+  const footerHeight = 160;
   const footerY = size - footerHeight;
 
-  // Solid dark navy footer background with gold top border
   ctx.save();
   ctx.fillStyle = '#060d1d';
   ctx.fillRect(0, footerY, size, footerHeight);
@@ -148,7 +163,6 @@ function drawFooterStrip(ctx: CanvasRenderingContext2D, size: number) {
   ctx.lineTo(size, footerY);
   ctx.stroke();
 
-  // Left side: AntFinServ Logo Text
   ctx.textAlign = 'left';
   ctx.font = '900 30px -apple-system, sans-serif';
   ctx.fillStyle = '#ffffff';
@@ -161,7 +175,6 @@ function drawFooterStrip(ctx: CanvasRenderingContext2D, size: number) {
   ctx.fillStyle = '#94a3b8';
   ctx.fillText('AMFI REGD. MUTUAL FUND DISTRIBUTOR & SIFD', 50, footerY + 74);
 
-  // Right side: ARN & Contact
   ctx.textAlign = 'right';
   ctx.font = 'bold 22px -apple-system, sans-serif';
   ctx.fillStyle = '#fde68a';
@@ -171,14 +184,13 @@ function drawFooterStrip(ctx: CanvasRenderingContext2D, size: number) {
   ctx.fillStyle = '#ffffff';
   ctx.fillText('📞 +91 98727 00392  |  🌐 antfinserv.com', size - 50, footerY + 74);
 
-  // Bottom Regulatory Strip across full width
   ctx.textAlign = 'center';
   ctx.font = '13px -apple-system, sans-serif';
   ctx.fillStyle = '#64748b';
   ctx.fillText(
     'Mutual Fund investments are subject to market risk. Read all scheme related documents carefully. | IRDAI Lic: 487 (Turtlemint POSP)',
     size / 2,
-    footerY + 120
+    footerY + 124
   );
 
   ctx.restore();
@@ -216,8 +228,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
   ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y + h, x + w, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
 }
 
