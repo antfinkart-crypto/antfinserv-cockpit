@@ -1,6 +1,7 @@
 /**
- * Generates a high-resolution 1080x1080 branded JPEG poster for WhatsApp / Social Media
- * Includes AntFinServ branding, gold accents, mascot logo, and AMFI ARN-94204 footer strip
+ * High-resolution 1080x1080 branded JPEG poster generator for WhatsApp & Social Media.
+ * When a custom image / artwork is provided, it NEVER overlays text across the image!
+ * Includes statutory SEBI / AMFI / IRDAI regulatory footer.
  */
 
 export interface PosterConfig {
@@ -16,33 +17,35 @@ export interface PosterConfig {
 }
 
 export async function generateBrandedPosterDataUrl(config: PosterConfig): Promise<string> {
-  const canvas = document.createElement('canvas');
   const size = 1080;
+  const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return '';
+  if (!ctx) return config.customImageUrl || '';
 
-  // 1. Background
+  // 1. If custom image / creative is provided:
   if (config.customImageUrl) {
-    // If custom image uploaded, draw it as background
     try {
       const customImg = await loadImage(config.customImageUrl);
+      // Draw the user's creative image cleanly to fill the canvas
       ctx.drawImage(customImg, 0, 0, size, size);
-      // Draw subtle dark overlay for text contrast
-      ctx.fillStyle = 'rgba(11, 19, 43, 0.4)';
-      ctx.fillRect(0, 0, size, size);
-    } catch {
+
+      // CRITICAL: DO NOT overlay drawPosterContent!
+      // The artwork already contains all headings, quotes, and visuals!
+      return canvas.toDataURL('image/jpeg', 0.96);
+    } catch (e) {
+      console.warn('Could not load custom image, falling back to procedural generation', e);
       drawDefaultBackground(ctx, size, config);
+      drawPosterContent(ctx, size, config);
+      drawFooterStrip(ctx, size);
+      return canvas.toDataURL('image/jpeg', 0.95);
     }
-  } else {
-    drawDefaultBackground(ctx, size, config);
   }
 
-  // 2. Thematic Graphics & Typography
+  // 2. Procedural Template Card (for cards without an uploaded image)
+  drawDefaultBackground(ctx, size, config);
   drawPosterContent(ctx, size, config);
-
-  // 3. Official AntFinServ Footer Strip
   drawFooterStrip(ctx, size);
 
   return canvas.toDataURL('image/jpeg', 0.95);
@@ -97,48 +100,40 @@ function drawPosterContent(ctx: CanvasRenderingContext2D, size: number, config: 
   // Category Tag at Top
   ctx.font = 'bold 24px -apple-system, sans-serif';
   ctx.fillStyle = '#f59e0b';
-  ctx.letterSpacing = '3px';
   ctx.fillText(config.category.toUpperCase(), size / 2, 120);
 
-  // Decorative Golden Sparkles / Arch
+  // Decorative Golden Sparkles
   ctx.fillStyle = '#d4af37';
-  ctx.font = '32px sans-serif';
+  ctx.font = '28px sans-serif';
   ctx.fillText('✦   ✦   ✦', size / 2, 170);
 
-  // Main Headline (e.g. "Navroz Mubarak!" or "Invest In Their Future")
-  ctx.font = '900 64px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  // Main Headline
+  ctx.font = '900 62px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
   ctx.fillStyle = '#ffffff';
-  wrapText(ctx, config.headline, size / 2, 290, 880, 76);
+  wrapText(ctx, config.headline, size / 2, 290, 880, 74);
 
   // Subheadline / Meaningful Copy
-  ctx.font = '500 32px -apple-system, sans-serif';
+  ctx.font = '500 30px -apple-system, sans-serif';
   ctx.fillStyle = '#cbd5e1';
-  wrapText(ctx, config.subheadline, size / 2, 540, 840, 48);
+  wrapText(ctx, config.subheadline, size / 2, 530, 840, 46);
 
-  // Personalized Client Name Callout if present
-  if (config.clientName) {
-    ctx.font = 'italic bold 28px -apple-system, sans-serif';
-    ctx.fillStyle = '#fbbf24';
-    ctx.fillText(`Specially crafted for ${config.clientName}`, size / 2, 780);
-  }
-
-  // Central Wealth Call-to-action or Motive
+  // Central Wealth Banner
   ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-  roundRect(ctx, 140, 810, 800, 90, 20);
+  roundRect(ctx, 140, 780, 800, 80, 20);
   ctx.fill();
   ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  ctx.font = 'bold 26px -apple-system, sans-serif';
+  ctx.font = 'bold 24px -apple-system, sans-serif';
   ctx.fillStyle = '#fde68a';
-  ctx.fillText('PLANNING YOUR FINANCES. BUILDING YOUR WEALTH.', size / 2, 866);
+  ctx.fillText('PLANNING YOUR FINANCES. BUILDING YOUR WEALTH.', size / 2, 830);
 
   ctx.restore();
 }
 
 function drawFooterStrip(ctx: CanvasRenderingContext2D, size: number) {
-  const footerHeight = 130;
+  const footerHeight = 150;
   const footerY = size - footerHeight;
 
   // Solid dark navy footer background with gold top border
@@ -147,7 +142,7 @@ function drawFooterStrip(ctx: CanvasRenderingContext2D, size: number) {
   ctx.fillRect(0, footerY, size, footerHeight);
 
   ctx.strokeStyle = '#d4af37';
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(0, footerY);
   ctx.lineTo(size, footerY);
@@ -155,26 +150,36 @@ function drawFooterStrip(ctx: CanvasRenderingContext2D, size: number) {
 
   // Left side: AntFinServ Logo Text
   ctx.textAlign = 'left';
-  ctx.font = '900 32px -apple-system, sans-serif';
+  ctx.font = '900 30px -apple-system, sans-serif';
   ctx.fillStyle = '#ffffff';
-  ctx.fillText('AntFinServ', 60, footerY + 50);
+  ctx.fillText('AntFinServ', 50, footerY + 44);
 
   ctx.fillStyle = '#f59e0b';
-  ctx.fillText('.com', 230, footerY + 50);
+  ctx.fillText('.com', 215, footerY + 44);
 
-  ctx.font = 'bold 18px -apple-system, sans-serif';
+  ctx.font = 'bold 16px -apple-system, sans-serif';
   ctx.fillStyle = '#94a3b8';
-  ctx.fillText('AMFI REGD. MUTUAL FUND DISTRIBUTOR & SIFD', 60, footerY + 84);
+  ctx.fillText('AMFI REGD. MUTUAL FUND DISTRIBUTOR & SIFD', 50, footerY + 74);
 
   // Right side: ARN & Contact
   ctx.textAlign = 'right';
   ctx.font = 'bold 22px -apple-system, sans-serif';
   ctx.fillStyle = '#fde68a';
-  ctx.fillText('ARN-94204 • Rana Sahib', size - 60, footerY + 50);
+  ctx.fillText('ARN-94204 • Rana Sahib', size - 50, footerY + 44);
 
-  ctx.font = 'bold 20px monospace';
+  ctx.font = 'bold 18px monospace';
   ctx.fillStyle = '#ffffff';
-  ctx.fillText('📞 +91 98727 00392  |  🌐 antfinserv.com', size - 60, footerY + 84);
+  ctx.fillText('📞 +91 98727 00392  |  🌐 antfinserv.com', size - 50, footerY + 74);
+
+  // Bottom Regulatory Strip across full width
+  ctx.textAlign = 'center';
+  ctx.font = '13px -apple-system, sans-serif';
+  ctx.fillStyle = '#64748b';
+  ctx.fillText(
+    'Mutual Fund investments are subject to market risk. Read all scheme related documents carefully. | IRDAI Lic: 487 (Turtlemint POSP)',
+    size / 2,
+    footerY + 120
+  );
 
   ctx.restore();
 }
@@ -212,7 +217,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.arcTo(x + w, y, x + w, y + h, r);
   ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
+  ctx.arcTo(x, y + h, x + w, y, r);
   ctx.closePath();
 }
 

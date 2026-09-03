@@ -53,25 +53,29 @@ export const NewLeadsProspectsManager: React.FC<NewLeadsProspectsManagerProps> =
 
   const handleSubmitNewLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newLead.firm_name || !newLead.owner_name || !newLead.mobile) {
-      alert('Please provide Company Name, Contact Person, and Mobile number.');
+    const ownerName = newLead.owner_name?.trim() || '';
+    const mobile = newLead.mobile?.trim() || '';
+    const firmName = newLead.firm_name?.trim() || '';
+
+    if (!ownerName && !mobile && !firmName) {
+      alert('Please provide at least a Contact Person Name or Mobile number to save this prospect.');
       return;
     }
 
     const lead: Lead = {
       id: 'lead-' + Date.now(),
       entry_date: new Date().toISOString().split('T')[0],
-      firm_name: newLead.firm_name,
-      owner_name: newLead.owner_name,
-      designation: newLead.designation,
-      mobile: newLead.mobile,
-      email: newLead.email,
-      location: newLead.location,
-      industry_sector: newLead.industry_sector,
+      firm_name: firmName || (ownerName ? `${ownerName} (Individual)` : 'Individual Prospect'),
+      owner_name: ownerName || firmName || 'Prospect',
+      designation: newLead.designation?.trim(),
+      mobile: mobile,
+      email: newLead.email?.trim(),
+      location: newLead.location?.trim(),
+      industry_sector: newLead.industry_sector || 'Banking & Financial Services',
       industry_remarks: newLead.industry_sector === 'Other' ? newLead.industry_remarks : undefined,
       status: (newLead.status as Lead['status']) || 'Warm Lead',
       priority: (newLead.priority as Lead['priority']) || 'Medium',
-      notes: newLead.notes,
+      notes: newLead.notes?.trim(),
       created_at: new Date().toISOString()
     };
 
@@ -248,30 +252,33 @@ export const NewLeadsProspectsManager: React.FC<NewLeadsProspectsManagerProps> =
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 max-w-xl w-full shadow-2xl space-y-5">
-            <h3 className="text-lg md:text-xl font-black text-slate-900 flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-blue-600" />
-              <span>Add New Lead / Prospect</span>
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg md:text-xl font-black text-slate-900 flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-blue-600" />
+                <span>Add New Lead / Prospect</span>
+              </h3>
+              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                Quick Add: Name or Mobile is enough
+              </span>
+            </div>
 
             <form onSubmit={handleSubmitNewLead} className="space-y-4 text-xs md:text-sm">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Company / Business Name *</label>
+                  <label className="block text-slate-600 font-semibold mb-1">Company / Business Name (Optional)</label>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. Apex Health Logistics"
+                    placeholder="e.g. Apex Health Logistics or leave empty"
                     value={newLead.firm_name}
                     onChange={(e) => setNewLead({ ...newLead, firm_name: e.target.value })}
                     className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Contact Person (Owner/Director) *</label>
+                  <label className="block text-slate-600 font-semibold mb-1">Contact Person Name</label>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. Rajesh Khurana"
+                    placeholder="e.g. Arpit Arora / Rajesh Khurana"
                     value={newLead.owner_name}
                     onChange={(e) => setNewLead({ ...newLead, owner_name: e.target.value })}
                     className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
@@ -281,21 +288,20 @@ export const NewLeadsProspectsManager: React.FC<NewLeadsProspectsManagerProps> =
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Mobile Number (WhatsApp) *</label>
+                  <label className="block text-slate-600 font-semibold mb-1">Mobile Number (WhatsApp)</label>
                   <input
                     type="tel"
-                    required
                     placeholder="98XXXXXXXX"
                     value={newLead.mobile}
                     onChange={(e) => setNewLead({ ...newLead, mobile: e.target.value })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Designation</label>
+                  <label className="block text-slate-600 font-semibold mb-1">Designation / Role (Optional)</label>
                   <input
                     type="text"
-                    placeholder="e.g. Managing Director / Partner"
+                    placeholder="e.g. Investor / Managing Director"
                     value={newLead.designation}
                     onChange={(e) => setNewLead({ ...newLead, designation: e.target.value })}
                     className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-blue-500"
@@ -305,7 +311,7 @@ export const NewLeadsProspectsManager: React.FC<NewLeadsProspectsManagerProps> =
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Industry Sector *</label>
+                  <label className="block text-slate-600 font-semibold mb-1">Industry Sector</label>
                   <select
                     value={newLead.industry_sector}
                     onChange={(e) => setNewLead({ ...newLead, industry_sector: e.target.value })}
@@ -334,10 +340,9 @@ export const NewLeadsProspectsManager: React.FC<NewLeadsProspectsManagerProps> =
 
               {newLead.industry_sector === 'Other' && (
                 <div>
-                  <label className="block text-slate-600 font-semibold mb-1">Industry Remarks / Specify Industry *</label>
+                  <label className="block text-slate-600 font-semibold mb-1">Industry Remarks (Optional)</label>
                   <input
                     type="text"
-                    required
                     placeholder="e.g. Cold Chain Storage & Automation"
                     value={newLead.industry_remarks}
                     onChange={(e) => setNewLead({ ...newLead, industry_remarks: e.target.value })}

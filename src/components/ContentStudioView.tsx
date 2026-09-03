@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
   Search,
-  Filter,
   Download,
-  Share2,
   Phone,
   Copy,
   Check,
@@ -13,17 +11,12 @@ import {
   Upload,
   Calendar,
   Eye,
-  TrendingUp,
-  Heart,
-  Shield,
-  Home,
-  Award,
-  Tag,
-  MessageSquare
+  ExternalLink,
+  UserCheck
 } from 'lucide-react';
-import { ClientMasterRecord } from '../types';
+import { ClientMasterRecord, Lead } from '../types';
 import { generateWhatsAppUrl } from '../lib/whatsAppRouter';
-import { generateBrandedPosterDataUrl, PosterConfig } from '../lib/posterCanvasGenerator';
+import { generateBrandedPosterDataUrl } from '../lib/posterCanvasGenerator';
 
 export interface ContentPost {
   id: string;
@@ -40,8 +33,50 @@ export interface ContentPost {
   isCustom?: boolean;
 }
 
+const REGULATORY_FOOTER = `Warm Regards,
+Rana Sahib | AntFinServ.com
+AMFI Regd. Mutual Fund Distributor & SIFD (ARN-94204)
+📞 +91 98727 00392
+
+---
+📌 STATUTORY REGULATORY DISCLAIMERS:
+• Mutual Fund investments are subject to market risks. Read all scheme related documents carefully.
+• Insurance is a subject matter of solicitation and subject to underwriting norms as applicable.
+• AntFinServ is a brand name solely owned by Rana Sahib. I, Rana Sahib, act as a POSP, registered with Turtlemint Insurance Broking Services Private Limited (IRDAI licence number 487).`;
+
+const SIGNUP_SECTION = `🚀 JOIN OUR INVESTOR COMMUNITY & START INVESTING:
+👉 https://antfinserv.themfbox.com/signup
+
+🌐 Explore Our Portal: https://antfinserv.com`;
+
 const BUILT_IN_POSTS: ContentPost[] = [
-  // 1. Events & Festivals
+  // 1. Featured Janmashtami Pilot Creative (TOMORROW)
+  {
+    id: 'EVT-JANMASHTAMI-2026',
+    title: 'Krishna Janmashtami: The Sweet Power of Disciplined SIPs',
+    category: 'Events & Festivals',
+    date: 'Tomorrow • Janmashtami Special',
+    tags: ['#HappyJanmashtami', '#KrishnaJanmashtami', '#MakhanSIP', '#WealthCreation'],
+    views: 1850,
+    bannerType: 'festive',
+    headline: 'Happy Krishna Janmashtami!',
+    subheadline: 'Just like how a little makhan built Krishna\'s strength bit by bit, a little SIP can build your family\'s lasting wealth.',
+    customImageUrl: '/janmashtami.jpg',
+    defaultCaption: `Happy Krishna Janmashtami! 🪈🦚✨
+
+On this sacred and joyous occasion of Shri Krishna Janmashtami, may Lord Krishna bless you and your family with boundless joy, vibrant health, peace of mind, and ever-growing prosperity!
+
+💡 The Wise Wisdom of Janmashtami:
+Just like how a little makhan built Krishna's strength bit by bit, small and consistent monthly SIPs build insurmountable wealth and security for your family over time.
+
+Start your auspicious wealth journey with AntFinServ on this blessed occasion:
+
+${SIGNUP_SECTION}
+
+${REGULATORY_FOOTER}`
+  },
+
+  // 2. Events & Festivals
   {
     id: 'EVT-001',
     title: 'Parsi New Year: Navroz Mubarak!',
@@ -52,18 +87,15 @@ const BUILT_IN_POSTS: ContentPost[] = [
     bannerType: 'festive',
     headline: 'Navroz Mubarak!',
     subheadline: 'This new year, welcome fresh beginnings, new financial goals, and lasting prosperity for your family.',
-    defaultCaption: `A new year. A fresh start. A chance to welcome all things good.
+    defaultCaption: `A new year. A fresh start. A chance to welcome all things good. ✦
 
 May Navroz bring joy, abundance, prosperity, and togetherness to your home and loved ones.
 
-Navroz Mubarak! ✦
+Navroz Mubarak! 
 
-Start your wealth creation journey with AntFinServ:
-👉 Connect with us: https://antfinserv.com
+${SIGNUP_SECTION}
 
-Warm Regards,
-Rana Sahib | AntFinServ.com (AMFI Regd. MFD ARN-94204)
-📞 +91 98727 00392`
+${REGULATORY_FOOTER}`
   },
   {
     id: 'EVT-002',
@@ -81,11 +113,9 @@ Beyond traditional promises, the greatest gift you can give your sibling is life
 
 Celebrate the eternal bond with peace of mind.
 
-Plan your family's future with AntFinServ:
-👉 https://antfinserv.com
+${SIGNUP_SECTION}
 
-Warm Regards,
-Rana Sahib | AntFinServ.com (ARN-94204)`
+${REGULATORY_FOOTER}`
   },
   {
     id: 'EVT-003',
@@ -101,11 +131,9 @@ Rana Sahib | AntFinServ.com (ARN-94204)`
 
 May King Mahabali bless your home with good health, unshakeable peace, and blossoming prosperity. Harvest your wealth with patience and discipline.
 
-Build your long-term wealth portfolio:
-👉 https://antfinserv.com
+${SIGNUP_SECTION}
 
-Warm Regards,
-AntFinServ.com (AMFI Regd. MFD ARN-94204)`
+${REGULATORY_FOOTER}`
   },
   {
     id: 'EVT-004',
@@ -121,9 +149,9 @@ AntFinServ.com (AMFI Regd. MFD ARN-94204)`
 
 May peace, harmony, divine blessings, and good fortune fill your home today and always.
 
-Warm Greetings from:
-Rana Sahib | AntFinServ.com (ARN-94204)
-👉 https://antfinserv.com`
+${SIGNUP_SECTION}
+
+${REGULATORY_FOOTER}`
   },
   {
     id: 'EVT-005',
@@ -139,11 +167,9 @@ Rana Sahib | AntFinServ.com (ARN-94204)
 
 Champions aren't made in a day—they are built with daily practice, grit, and discipline. Wealth creation follows the exact same rule: small, unbroken monthly SIPs create extraordinary financial champions!
 
-Review your investment fitness today:
-👉 https://antfinserv.com
+${SIGNUP_SECTION}
 
-Warm Regards,
-Rana Sahib | AntFinServ.com (ARN-94204)`
+${REGULATORY_FOOTER}`
   },
   {
     id: 'EVT-006',
@@ -159,14 +185,12 @@ Rana Sahib | AntFinServ.com (ARN-94204)`
 
 To the elders who built our foundations with wisdom and hard work: may your golden years be filled with good health, joyful companionship, and independent financial dignity through guaranteed cash flows and SWP plans.
 
-Retirement & Regular Cash Flow Solutions:
-👉 https://antfinserv.com
+${SIGNUP_SECTION}
 
-Warm Regards,
-AntFinServ.com (ARN-94204)`
+${REGULATORY_FOOTER}`
   },
 
-  // 2. Birthdays & Celebrations
+  // 3. Birthdays & Celebrations
   {
     id: 'CEL-001',
     title: 'Birthday Greeting: Health, Joy & Compounding Wealth',
@@ -183,9 +207,9 @@ May this special day mark the beginning of an extraordinary year blessed with go
 
 It is our privilege to walk alongside you on your wealth-building journey!
 
-Warmest Wishes,
-Rana Sahib & Team AntFinServ.com (ARN-94204)
-📞 +91 98727 00392`
+${SIGNUP_SECTION}
+
+${REGULATORY_FOOTER}`
   },
   {
     id: 'CEL-002',
@@ -203,11 +227,12 @@ May your bond grow stronger with each passing year, and may your shared dreams o
 
 Wishing you endless happiness and lasting wealth!
 
-Warm Regards,
-Rana Sahib | AntFinServ.com (ARN-94204)`
+${SIGNUP_SECTION}
+
+${REGULATORY_FOOTER}`
   },
 
-  // 3. Mutual Funds & SIP Wealth
+  // 4. Mutual Funds & SIP Wealth
   {
     id: 'MF-001',
     title: 'Child Education: Harvard or Oxford? Start With A SIP',
@@ -222,13 +247,11 @@ Rana Sahib | AntFinServ.com (ARN-94204)`
 
 Education inflation in India is running at 10-12% per year. A 4-year degree costing ₹25L today will cost over ₹60L in 10 years!
 
-Don't let money hold your child back. Start a targeted Education Wealth SIP today.
+Don't let finances hold your child back. Start a targeted Education Wealth SIP today.
 
-Calculate your child's education goal:
-👉 https://antfinserv.com
+${SIGNUP_SECTION}
 
-Warm Regards,
-Rana Sahib | AntFinServ.com (ARN-94204)`
+${REGULATORY_FOOTER}`
   },
   {
     id: 'MF-002',
@@ -249,11 +272,9 @@ Rana Sahib | AntFinServ.com (ARN-94204)`
 
 The best time to start was yesterday. The second best time is right now.
 
-Start your daily or monthly SIP with AntFinServ:
-👉 https://antfinserv.com
+${SIGNUP_SECTION}
 
-Warm Regards,
-Rana Sahib | AMFI Regd. MFD ARN-94204`
+${REGULATORY_FOOTER}`
   },
   {
     id: 'MF-003',
@@ -272,10 +293,10 @@ Do you know the exact XIRR of your Mutual Fund portfolio after accounting for ta
 Holding 20 different schemes doesn't mean diversification—it often means duplicate portfolios and diluted returns.
 
 Get a complimentary 360° Portfolio Health Audit from AntFinServ:
-👉 Request review: https://antfinserv.com
 
-Warm Regards,
-Rana Sahib | AntFinServ.com (ARN-94204)`
+${SIGNUP_SECTION}
+
+${REGULATORY_FOOTER}`
   },
   {
     id: 'MF-004',
@@ -295,14 +316,12 @@ Cutting just ONE unnecessary ₹8,000 outing per month and redirecting it into a
 
 Live well today, and live abundantly tomorrow.
 
-Plan your wealth with AntFinServ:
-👉 https://antfinserv.com
+${SIGNUP_SECTION}
 
-Warm Regards,
-AntFinServ.com (ARN-94204)`
+${REGULATORY_FOOTER}`
   },
 
-  // 4. Health Insurance
+  // 5. Health Insurance
   {
     id: 'INS-001',
     title: 'Health Insurance Claims: Your Step-by-Step Settlement Guide',
@@ -317,14 +336,12 @@ AntFinServ.com (ARN-94204)`
 
 At AntFinServ, we don't just help you choose the right health cover; our dedicated claims advocacy desk coordinates with TPAs and insurers to ensure cashless approvals and smooth reimbursements.
 
-Review your family's health cover today:
-👉 https://antfinserv.com
+${SIGNUP_SECTION}
 
-Warm Regards,
-Rana Sahib | AntFinServ Protection Vault (ARN-94204)`
+${REGULATORY_FOOTER}`
   },
 
-  // 5. Home Loans
+  // 6. Home Loans
   {
     id: 'HL-001',
     title: 'Home Loan Balance Transfer: Save Lakhs In Lifetime Interest',
@@ -343,18 +360,19 @@ Before switching banks, always verify:
 3. Your exact break-even period
 
 Get an institutional-grade, zero-pressure Balance Transfer Audit from AntFinServ:
-👉 https://antfinserv.com
 
-Warm Regards,
-Rana Sahib | AntFinServ.com (ARN-94204)`
+${SIGNUP_SECTION}
+
+${REGULATORY_FOOTER}`
   }
 ];
 
 interface ContentStudioViewProps {
   clients?: ClientMasterRecord[];
+  leads?: Lead[];
 }
 
-export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = [] }) => {
+export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = [], leads = [] }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [posts, setPosts] = useState<ContentPost[]>(() => {
@@ -371,9 +389,8 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
   });
 
   const [activeModalPost, setActiveModalPost] = useState<ContentPost | null>(null);
-  const [selectedClient, setSelectedClient] = useState<ClientMasterRecord | null>(null);
-  const [customClientName, setCustomClientName] = useState('');
-  const [customClientPhone, setCustomClientPhone] = useState('');
+  const [selectedClientName, setSelectedClientName] = useState<string>('');
+  const [selectedClientPhone, setSelectedClientPhone] = useState<string>('');
   const [copiedPostId, setCopiedPostId] = useState<string | null>(null);
   const [isUploadingCustom, setIsUploadingCustom] = useState(false);
   const [isGeneratingPoster, setIsGeneratingPoster] = useState(false);
@@ -381,7 +398,9 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
   // New Custom Post Form State
   const [newPostTitle, setNewPostTitle] = useState('');
   const [newPostCategory, setNewPostCategory] = useState<ContentPost['category']>('Events & Festivals');
-  const [newPostDate, setNewPostDate] = useState(() => new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }));
+  const [newPostDate, setNewPostDate] = useState(() =>
+    new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  );
   const [newPostHeadline, setNewPostHeadline] = useState('');
   const [newPostSubheadline, setNewPostSubheadline] = useState('');
   const [newPostCaption, setNewPostCaption] = useState('');
@@ -407,10 +426,9 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
   });
 
   const handleCopyCaption = (post: ContentPost) => {
-    const clientName = selectedClient ? selectedClient.investor_name : customClientName;
     let text = post.defaultCaption;
-    if (clientName) {
-      text = `Dear ${clientName},\n\n${text}`;
+    if (selectedClientName) {
+      text = `Dear ${selectedClientName},\n\n${text}`;
     }
     navigator.clipboard.writeText(text);
     setCopiedPostId(post.id);
@@ -418,29 +436,24 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
   };
 
   const handlePushWhatsApp = (post: ContentPost) => {
-    const clientName = selectedClient ? selectedClient.investor_name : customClientName;
-    const phone = selectedClient ? selectedClient.mobile : customClientPhone;
-
     let text = post.defaultCaption;
-    if (clientName) {
-      text = `Dear ${clientName},\n\n${text}`;
+    if (selectedClientName) {
+      text = `Dear ${selectedClientName},\n\n${text}`;
     }
 
-    const url = generateWhatsAppUrl(phone || '', text);
+    const url = generateWhatsAppUrl(selectedClientPhone || '', text);
     window.open(url, '_blank');
   };
 
   const handleDownloadPoster = async (post: ContentPost) => {
     setIsGeneratingPoster(true);
     try {
-      const clientName = selectedClient ? selectedClient.investor_name : customClientName;
       const dataUrl = await generateBrandedPosterDataUrl({
         title: post.title,
         headline: post.headline,
         subheadline: post.subheadline,
         category: post.category,
         bannerType: post.bannerType,
-        clientName: clientName || undefined,
         customImageUrl: post.customImageUrl
       });
 
@@ -470,8 +483,8 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
 
   const handleSaveCustomPost = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPostTitle || !newPostHeadline) {
-      alert('Please enter a title and headline for the event poster.');
+    if (!newPostTitle) {
+      alert('Please enter a title for the event poster.');
       return;
     }
 
@@ -492,11 +505,11 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
           : newPostCategory === 'Home Loans'
           ? 'loan'
           : 'wealth',
-      headline: newPostHeadline,
+      headline: newPostHeadline || newPostTitle,
       subheadline: newPostSubheadline || 'Personalized greetings and financial insights from AntFinServ.',
       defaultCaption:
         newPostCaption ||
-        `${newPostHeadline}\n\n${newPostSubheadline}\n\nConnect with AntFinServ.com for trusted financial guidance:\n👉 https://antfinserv.com\n\nWarm Regards,\nRana Sahib | AntFinServ.com (ARN-94204)\n📞 +91 98727 00392`,
+        `${newPostHeadline || newPostTitle}\n\n${newPostSubheadline}\n\n${SIGNUP_SECTION}\n\n${REGULATORY_FOOTER}`,
       customImageUrl: newPostImageBase64 || undefined,
       isCustom: true
     };
@@ -519,17 +532,17 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
     setNewPostSubheadline('');
     setNewPostCaption('');
     setNewPostImageBase64('');
-    alert('Custom Event Poster successfully added to your Content Studio repository!');
+    alert('Custom Event Creative added successfully to your Content Studio repository!');
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Banner (AssetPlus Style) */}
+      {/* Top Banner */}
       <div className="glass-panel p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xs bg-white">
         <div>
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 text-white flex items-center justify-center font-black text-xl shadow-xs flex-shrink-0">
-              <Sparkles className="w-6 h-6 text-amber-200" />
+            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-950 border border-amber-400/40 p-1 flex-shrink-0 shadow-xs flex items-center justify-center">
+              <img src="/emblem-logo.jpg" alt="AntFinServ" className="w-full h-full object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -537,11 +550,11 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                   Content Studio & Marketing Hub
                 </h2>
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold border border-amber-200 hidden sm:inline-block">
-                  Personalized Posters & WhatsApp Push
+                  Janmashtami Pilot • Verified ARN-94204
                 </span>
               </div>
               <p className="text-xs md:text-sm text-slate-500 mt-0.5">
-                Ready-to-share festival greetings, celebration cards, and financial thought leadership with your verified ARN-94204 branding.
+                Ready-to-fire festive greetings, SIP wealth cards, and leads push queue with embedded community signup links.
               </p>
             </div>
           </div>
@@ -552,7 +565,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
           className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-xs transition-all border border-slate-700 flex-shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4 text-amber-400" />
-          <span>+ Upload Custom Event / Poster</span>
+          <span>+ Upload Custom Creative / Poster</span>
         </button>
       </div>
 
@@ -591,7 +604,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
-            placeholder="Search Navroz, SIP, Rakhi..."
+            placeholder="Search Janmashtami, SIP, Rakhi..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-amber-500 font-medium"
@@ -599,7 +612,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
         </div>
       </div>
 
-      {/* Grid of Posters (AssetPlus Gallery Style) */}
+      {/* Grid of Posters */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         {filteredPosts.map(post => (
           <div
@@ -611,7 +624,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
               onClick={() => setActiveModalPost(post)}
               className="h-56 relative overflow-hidden bg-slate-950 p-5 flex flex-col justify-between cursor-pointer"
             >
-              {/* If custom image, show it */}
+              {/* If custom image, show it CLEANLY */}
               {post.customImageUrl ? (
                 <img
                   src={post.customImageUrl}
@@ -619,51 +632,55 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
               ) : (
-                <div
-                  className={`absolute inset-0 bg-gradient-to-br ${
-                    post.bannerType === 'festive'
-                      ? 'from-amber-950 via-slate-950 to-stone-900'
-                      : post.bannerType === 'wealth'
-                      ? 'from-emerald-950 via-slate-950 to-blue-950'
-                      : post.bannerType === 'protection'
-                      ? 'from-blue-950 via-slate-950 to-indigo-950'
-                      : post.bannerType === 'loan'
-                      ? 'from-stone-950 via-slate-950 to-slate-900'
-                      : 'from-purple-950 via-slate-950 to-amber-950'
-                  }`}
-                />
+                <>
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-br ${
+                      post.bannerType === 'festive'
+                        ? 'from-amber-950 via-slate-950 to-stone-900'
+                        : post.bannerType === 'wealth'
+                        ? 'from-emerald-950 via-slate-950 to-blue-950'
+                        : post.bannerType === 'protection'
+                        ? 'from-blue-950 via-slate-950 to-indigo-950'
+                        : post.bannerType === 'loan'
+                        ? 'from-stone-950 via-slate-950 to-slate-900'
+                        : 'from-purple-950 via-slate-950 to-amber-950'
+                    }`}
+                  />
+                  <div className="relative z-10 flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-0.5 rounded-md bg-amber-500/80 text-white shadow-xs">
+                      {post.category}
+                    </span>
+                  </div>
+
+                  <div className="relative z-10 space-y-1">
+                    <h3 className="text-lg font-black text-white leading-tight drop-shadow-md">
+                      {post.headline}
+                    </h3>
+                    <p className="text-[11px] text-slate-200 line-clamp-2 leading-relaxed drop-shadow-sm font-medium">
+                      {post.subheadline}
+                    </p>
+                  </div>
+
+                  <div className="relative z-10 pt-2 border-t border-white/20 flex items-center justify-between text-[10px] text-amber-300 font-mono">
+                    <span>AntFinServ.com</span>
+                    <span>ARN-94204</span>
+                  </div>
+                </>
               )}
 
-              {/* Overlay for readability */}
-              <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors" />
-
-              {/* Top Tag & Badge */}
-              <div className="relative z-10 flex items-center justify-between">
-                <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-0.5 rounded-md bg-amber-500/80 text-white shadow-xs backdrop-blur-xs">
-                  {post.category}
-                </span>
-                {post.isCustom && (
-                  <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-500 text-white">
-                    Custom
+              {/* Subtle top pill on image */}
+              {post.customImageUrl && (
+                <div className="relative z-10 flex items-center justify-between pointer-events-none">
+                  <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded bg-black/60 text-amber-300 backdrop-blur-xs border border-amber-400/40">
+                    {post.category}
                   </span>
-                )}
-              </div>
-
-              {/* Center Typography */}
-              <div className="relative z-10 space-y-1">
-                <h3 className="text-lg font-black text-white leading-tight drop-shadow-md">
-                  {post.headline}
-                </h3>
-                <p className="text-[11px] text-slate-200 line-clamp-2 leading-relaxed drop-shadow-sm font-medium">
-                  {post.subheadline}
-                </p>
-              </div>
-
-              {/* Bottom Brand Watermark */}
-              <div className="relative z-10 pt-2 border-t border-white/20 flex items-center justify-between text-[10px] text-amber-300 font-mono">
-                <span>AntFinServ.com</span>
-                <span>ARN-94204</span>
-              </div>
+                  {post.isCustom && (
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-600 text-white shadow-xs">
+                      Custom
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Card Content & Action Bar */}
@@ -697,11 +714,13 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
 
                 <button
                   type="button"
-                  onClick={() => handlePushWhatsApp(post)}
+                  onClick={() => {
+                    setActiveModalPost(post);
+                  }}
                   className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
                 >
                   <Phone className="w-3.5 h-3.5" />
-                  <span>WhatsApp</span>
+                  <span>Push</span>
                 </button>
               </div>
             </div>
@@ -714,78 +733,47 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
       {/* ========================================================================= */}
       {activeModalPost && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6">
-          <div className="bg-white text-slate-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col md:flex-row my-auto">
+          <div className="bg-white text-slate-900 w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col md:flex-row my-auto max-h-[95vh]">
             
-            {/* Left: Poster Preview (Square 1:1 format) */}
-            <div className="md:w-1/2 bg-slate-950 p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden min-h-[380px] md:min-h-[500px]">
-              {/* Background */}
+            {/* Left: Pure, Uncluttered Artwork Preview */}
+            <div className="md:w-1/2 bg-slate-950 relative overflow-hidden min-h-[380px] md:min-h-[520px] flex items-center justify-center p-4">
               {activeModalPost.customImageUrl ? (
                 <img
                   src={activeModalPost.customImageUrl}
                   alt={activeModalPost.title}
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="w-full h-full max-h-[500px] object-contain rounded-2xl shadow-xl"
                 />
               ) : (
-                <div
-                  className={`absolute inset-0 bg-gradient-to-br ${
-                    activeModalPost.bannerType === 'festive'
-                      ? 'from-amber-950 via-slate-950 to-stone-900'
-                      : activeModalPost.bannerType === 'wealth'
-                      ? 'from-emerald-950 via-slate-950 to-blue-950'
-                      : activeModalPost.bannerType === 'protection'
-                      ? 'from-blue-950 via-slate-950 to-indigo-950'
-                      : activeModalPost.bannerType === 'loan'
-                      ? 'from-stone-950 via-slate-950 to-slate-900'
-                      : 'from-purple-950 via-slate-950 to-amber-950'
-                  }`}
-                />
+                <div className="w-full h-full p-6 flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs uppercase font-black tracking-wider text-amber-400">
+                      {activeModalPost.category}
+                    </span>
+                    <div className="w-9 h-9 rounded-xl overflow-hidden border border-amber-400/40 bg-slate-900 shadow-md">
+                      <img src="/emblem-logo.jpg" alt="AntFinServ" className="w-full h-full object-contain" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 my-auto py-6 text-center">
+                    <div className="text-amber-400 text-lg">✦ ✦ ✦</div>
+                    <h3 className="text-2xl sm:text-3xl font-black text-white leading-tight drop-shadow-md">
+                      {activeModalPost.headline}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-medium">
+                      {activeModalPost.subheadline}
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t border-amber-400/40 flex items-center justify-between text-xs text-slate-300 font-mono">
+                    <span>AntFinServ.com</span>
+                    <span>ARN-94204 • Rana Sahib</span>
+                  </div>
+                </div>
               )}
-              <div className="absolute inset-0 bg-black/40" />
-
-              {/* Header inside poster */}
-              <div className="relative z-10 flex items-center justify-between">
-                <span className="text-xs uppercase font-black tracking-wider text-amber-400">
-                  {activeModalPost.category}
-                </span>
-                <div className="w-9 h-9 rounded-xl overflow-hidden border border-amber-400/40 bg-slate-900 shadow-md">
-                  <img src="/logo.png" alt="AntFinServ" className="w-full h-full object-cover" />
-                </div>
-              </div>
-
-              {/* Central Poster Typography */}
-              <div className="relative z-10 space-y-2.5 my-auto py-4">
-                <div className="text-amber-400 text-lg">✦ ✦ ✦</div>
-                <h3 className="text-2xl sm:text-3xl font-black text-white leading-tight drop-shadow-md">
-                  {activeModalPost.headline}
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed drop-shadow-sm font-medium">
-                  {activeModalPost.subheadline}
-                </p>
-
-                {(selectedClient || customClientName) && (
-                  <p className="text-xs font-bold text-amber-300 italic pt-1">
-                    Specially for: {selectedClient ? selectedClient.investor_name : customClientName}
-                  </p>
-                )}
-              </div>
-
-              {/* Official Bottom Strip on Poster */}
-              <div className="relative z-10 pt-3 border-t-2 border-amber-400/60 bg-slate-950/80 -mx-6 sm:-mx-8 -mb-6 sm:-mb-8 p-4 px-6 flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-black text-white tracking-tight">
-                    AntFinServ<span className="text-amber-400">.com</span>
-                  </h4>
-                  <p className="text-[9px] text-slate-400">AMFI REGD. MFD ARN-94204</p>
-                </div>
-                <div className="text-right text-[10px] text-slate-300">
-                  <p className="font-mono text-amber-300 font-bold">Rana Sahib</p>
-                  <p className="font-mono">+91 98727 00392</p>
-                </div>
-              </div>
             </div>
 
-            {/* Right: Message Details, Client Picker & Push Controls */}
-            <div className="md:w-1/2 p-6 sm:p-7 flex flex-col justify-between space-y-4 bg-white">
+            {/* Right: Message Details, Client/Lead Picker & Push Controls */}
+            <div className="md:w-1/2 p-6 sm:p-7 flex flex-col justify-between space-y-4 bg-white overflow-y-auto max-h-[580px]">
               <div className="space-y-4">
                 {/* Header with Close */}
                 <div className="flex items-start justify-between">
@@ -819,64 +807,107 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                   ))}
                 </div>
 
-                {/* Client Master Personalization Picker */}
-                <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-2">
-                  <label className="block text-[11px] font-extrabold uppercase tracking-wider text-amber-900">
-                    Personalize for Client (1-to-1 Push):
-                  </label>
+                {/* Embedded Community Signup Button Bar */}
+                <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-200 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-black text-amber-900 uppercase tracking-wider">
+                      Client Onboarding Link (Embedded):
+                    </p>
+                    <p className="text-[11px] text-slate-600 font-mono">
+                      https://antfinserv.themfbox.com/signup
+                    </p>
+                  </div>
+                  <a
+                    href="https://antfinserv.themfbox.com/signup"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs whitespace-nowrap"
+                  >
+                    <span>JOIN COMMUNITY</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
 
-                  {clients.length > 0 ? (
-                    <select
-                      value={selectedClient ? selectedClient.client_id : ''}
-                      onChange={e => {
-                        const c = clients.find(cl => cl.client_id === e.target.value);
-                        setSelectedClient(c || null);
-                        if (c) {
-                          setCustomClientName(c.investor_name);
-                          setCustomClientPhone(c.mobile || '');
-                        } else {
-                          setCustomClientName('');
-                          setCustomClientPhone('');
-                        }
-                      }}
-                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-amber-300 bg-white font-medium focus:outline-none focus:border-amber-500"
-                    >
-                      <option value="">-- Select Client from Client Master --</option>
-                      {clients.map(cl => (
-                        <option key={cl.client_id} value={cl.client_id}>
-                          {cl.investor_name} ({cl.mobile || 'No Mobile'})
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
+                {/* Client Master & Leads Dropdown Picker */}
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Select Target Client / Prospect:</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400">
+                      {clients.length} Clients • {leads.length} Leads
+                    </span>
+                  </div>
+
+                  <select
+                    value={selectedClientName ? `${selectedClientName}|${selectedClientPhone}` : ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (!val) {
+                        setSelectedClientName('');
+                        setSelectedClientPhone('');
+                      } else {
+                        const [name, phone] = val.split('|');
+                        setSelectedClientName(name || '');
+                        setSelectedClientPhone(phone || '');
+                      }
+                    }}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white font-medium focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="">-- Choose from Client Master or Leads --</option>
+                    {leads.length > 0 && (
+                      <optgroup label="🎯 New Leads & Prospects Pipeline">
+                        {leads.map(l => (
+                          <option key={l.id} value={`${l.owner_name}|${l.mobile}`}>
+                            {l.owner_name} {l.firm_name ? `(${l.firm_name})` : ''} - {l.mobile}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {clients.length > 0 && (
+                      <optgroup label="👥 Mutual Fund Client Master">
+                        {clients.map(cl => (
+                          <option key={cl.client_id} value={`${cl.investor_name}|${cl.mobile}`}>
+                            {cl.investor_name} ({cl.mobile || 'No Mobile'})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
 
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <input
                       type="text"
-                      placeholder="Or enter client name..."
-                      value={customClientName}
-                      onChange={e => setCustomClientName(e.target.value)}
-                      className="px-2.5 py-1 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-amber-500"
+                      placeholder="Or type client name..."
+                      value={selectedClientName}
+                      onChange={e => setSelectedClientName(e.target.value)}
+                      className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-amber-500"
                     />
                     <input
                       type="text"
                       placeholder="Mobile for WhatsApp..."
-                      value={customClientPhone}
-                      onChange={e => setCustomClientPhone(e.target.value)}
-                      className="px-2.5 py-1 text-xs rounded-lg border border-slate-200 bg-white font-mono focus:outline-none focus:border-amber-500"
+                      value={selectedClientPhone}
+                      onChange={e => setSelectedClientPhone(e.target.value)}
+                      className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white font-mono focus:outline-none focus:border-amber-500"
                     />
                   </div>
                 </div>
 
-                {/* Formatted Message Preview */}
+                {/* Formatted Message Draft */}
                 <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                    WhatsApp Message Draft:
-                  </span>
-                  <div className="max-h-48 overflow-y-auto p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 whitespace-pre-wrap leading-relaxed font-sans">
-                    {(selectedClient || customClientName) && (
-                      <span className="font-bold text-amber-800 block mb-1">
-                        Dear {selectedClient ? selectedClient.investor_name : customClientName},
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      WhatsApp Message Draft:
+                    </span>
+                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded">
+                      ✓ SEBI Disclaimers Included
+                    </span>
+                  </div>
+                  <div className="max-h-44 overflow-y-auto p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 whitespace-pre-wrap leading-relaxed font-sans">
+                    {selectedClientName && (
+                      <span className="font-bold text-amber-900 block mb-1">
+                        Dear {selectedClientName},
                       </span>
                     )}
                     {activeModalPost.defaultCaption}
@@ -919,7 +950,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                     ) : (
                       <>
                         <Copy className="w-3.5 h-3.5 text-slate-600" />
-                        <span>Copy Text</span>
+                        <span>Copy Message</span>
                       </>
                     )}
                   </button>
@@ -932,7 +963,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
       )}
 
       {/* ========================================================================= */}
-      {/* UPLOAD CUSTOM EVENT / POSTER MODAL                                         */}
+      {/* UPLOAD CUSTOM EVENT / CREATIVE MODAL                                       */}
       {/* ========================================================================= */}
       {isUploadingCustom && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6">
@@ -941,7 +972,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
               <div className="flex items-center gap-2">
                 <Upload className="w-5 h-5 text-amber-600" />
                 <h3 className="text-base sm:text-lg font-black text-slate-900">
-                  Upload Custom Event / Festival Poster
+                  Upload Custom Event / Festival Creative
                 </h3>
               </div>
               <button
@@ -955,12 +986,12 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
             <form onSubmit={handleSaveCustomPost} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Event / Festival Title <span className="text-amber-600">*</span>
+                  Event / Festival Title (For Library Index) <span className="text-amber-600">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Ganesh Chaturthi: Auspicious Beginnings"
+                  placeholder="e.g. Krishna Janmashtami Special"
                   value={newPostTitle}
                   onChange={e => setNewPostTitle(e.target.value)}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 font-medium"
@@ -996,34 +1027,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Poster Headline <span className="text-amber-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Ganpati Bappa Morya!"
-                  value={newPostHeadline}
-                  onChange={e => setNewPostHeadline(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Poster Subtext / Meaning
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. May Lord Ganesha remove all obstacles from your wealth path."
-                  value={newPostSubheadline}
-                  onChange={e => setNewPostSubheadline(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Upload Creative Image (Optional, from AssetPlus or Canva)
+                  Upload Creative Image File (Artwork will remain pristine with zero text overlay)
                 </label>
                 <input
                   type="file"
@@ -1032,7 +1036,7 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                   className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer"
                 />
                 {newPostImageBase64 && (
-                  <div className="mt-2 w-20 h-20 rounded-xl overflow-hidden border border-slate-200">
+                  <div className="mt-2 w-28 h-28 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
                     <img src={newPostImageBase64} alt="Preview" className="w-full h-full object-cover" />
                   </div>
                 )}
@@ -1040,11 +1044,11 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  WhatsApp Caption / Remark Text
+                  WhatsApp Greeting / Caption Message
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="Enter message text with remarks for client (will include https://antfinserv.com link)..."
+                  placeholder="Enter message text... (Signup link & SEBI disclaimers will be automatically attached)"
                   value={newPostCaption}
                   onChange={e => setNewPostCaption(e.target.value)}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 font-medium"

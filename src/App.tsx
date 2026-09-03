@@ -446,7 +446,7 @@ export const App: React.FC = () => {
         )}
 
         {activeTab === 'content' && (
-          <ContentStudioView clients={clientMaster} />
+          <ContentStudioView clients={clientMaster} leads={leads} />
         )}
 
         {activeTab === 'celebrations' && (
