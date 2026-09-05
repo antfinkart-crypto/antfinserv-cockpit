@@ -128,7 +128,8 @@ export interface HealthInsuranceData {
   specific_disease_waiting_months: number; // usually 24 months
   ped_waiting_period_months: number; // e.g. 12, 24, 36, 48 months
   restoration_benefit: boolean;
-  cumulative_bonus_percentage: number; // NCB %
+  ncb_current_year_amount?: number; // NCB / Cumulative bonus amount for current year in INR (₹)
+  cumulative_bonus_percentage?: number; // optional legacy %
   maternity_coverage: boolean;
   opd_coverage: boolean;
   daycare_procedures_covered: boolean;
@@ -148,7 +149,17 @@ export interface MotorInsuranceData {
   fuel_type: 'Petrol' | 'Diesel' | 'CNG' | 'Electric' | 'Hybrid';
   idv: number; // Insured Declared Value (₹)
   ncb_percentage: number; // 0, 20, 25, 35, 45, 50%
+  ncb_discount_amount?: number; // NCB discount amount in INR (₹)
   policy_subtype: 'Comprehensive' | 'Own Damage (OD)' | 'Third Party Only (TP)' | 'Bundled (1+3 / 1+5)';
+  policy_structure?: '1+3 Bundled (New 4W: 1yr OD + 3yr TP)' | '1+5 Bundled (New 2W: 1yr OD + 5yr TP)' | 'Standalone Own Damage (SAOD Renewal)' | 'Comprehensive (1yr OD + 1yr TP)' | 'Third Party Liability Only';
+  od_policy_start_date?: string; // e.g. 2025-09-27
+  od_policy_expiry_date?: string; // e.g. 2026-09-26
+  tp_policy_start_date?: string; // e.g. 2024-09-27
+  tp_policy_expiry_date?: string; // e.g. 2027-09-26
+  tp_insurer_name?: string; // e.g. 'Bajaj Allianz General Insurance Co. Ltd.'
+  tp_policy_number?: string; // e.g. 'OG-25-1021-1825-0030547'
+  od_net_premium?: number;
+  tp_liability_premium?: number;
   zero_depreciation: boolean;
   engine_protection: boolean;
   return_to_invoice: boolean;
@@ -161,6 +172,7 @@ export interface MotorInsuranceData {
   engine_number_masked?: string;
   chassis_number_masked?: string;
   seating_capacity?: number;
+  cubic_capacity?: number | string;
   rto_location?: string;
 }
 
@@ -205,11 +217,17 @@ export interface TravelInsuranceData {
 }
 
 export interface PropertyHomeData {
+  property_identifier?: string; // e.g. 'Flat 1302 Tower E Oberoi Splendor (Mumbai)'
   property_address: string;
+  risk_location_address?: string; // Premises location
   pincode: string;
   occupancy_type: 'Owner' | 'Tenant' | 'Landlord';
   structure_sum_insured: number;
   contents_sum_insured: number;
+  carpet_area_sq_m?: number;
+  rate_per_sq_m?: number;
+  policy_tenure_years?: number; // e.g. 2 for 2-year Griha Raksha
+  terrorism_premium?: number;
   burglary_theft_cover: boolean;
   earthquake_stfi_peril: boolean;
   public_liability_limit?: number;

@@ -169,8 +169,9 @@ export const EditPolicyModal: React.FC<EditPolicyModalProps> = ({
       setIsSaving(true);
 
       const netPremNum = Number(netPremium) || 0;
-      const calculatedGst = taxesGst !== '' ? Number(taxesGst) : Math.round(netPremNum * 0.18);
-      const calculatedGross = grossPremium !== '' ? Number(grossPremium) : Math.round(netPremNum + calculatedGst);
+      const isRetailTaxExempt = vertical === 'HEALTH' || vertical === 'LIFE';
+      const calculatedGst = isRetailTaxExempt ? 0 : (taxesGst !== '' ? Number(taxesGst) : Math.round(netPremNum * 0.18));
+      const calculatedGross = isRetailTaxExempt ? netPremNum : (grossPremium !== '' ? Number(grossPremium) : Math.round(netPremNum + calculatedGst));
 
       const updatedPolicyMembers: PolicyMember[] = members.map(m => ({
         id: m.id,
@@ -495,15 +496,25 @@ export const EditPolicyModal: React.FC<EditPolicyModalProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Taxes / GST (₹)</label>
-                  <input
-                    type="number"
-                    value={taxesGst}
-                    onChange={e => setTaxesGst(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
-                  />
-                </div>
+{vertical !== 'HEALTH' && vertical !== 'LIFE' ? (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Taxes / GST (₹)</label>
+                    <input
+                      type="number"
+                      value={taxesGst}
+                      onChange={e => setTaxesGst(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col justify-center">
+                    <span className="text-[10px] font-bold uppercase text-emerald-700">Retail Tax Status</span>
+                    <div className="mt-1 px-3 py-2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>0% GST (Exempt)</span>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Payment Frequency</label>
@@ -699,61 +710,222 @@ export const EditPolicyModal: React.FC<EditPolicyModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Cumulative Bonus (NCB %)</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      NCB / Cumulative Bonus Amount for Current Year (₹) *
+                    </label>
                     <input
                       type="number"
-                      value={verticalData.cumulative_bonus_percentage ?? 0}
-                      onChange={e => setVerticalData({ ...verticalData, cumulative_bonus_percentage: Number(e.target.value) })}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
+                      value={verticalData.ncb_current_year_amount ?? ''}
+                      onChange={e => setVerticalData({ ...verticalData, ncb_current_year_amount: Number(e.target.value) })}
+                      placeholder="e.g. 200000 (copied directly from renewal copy)"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 font-mono font-bold text-emerald-800"
                     />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">Exact rupee amount from policy schedule</span>
                   </div>
                 </div>
               )}
 
               {vertical === 'MOTOR' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Vehicle Registration No</label>
-                    <input
-                      type="text"
-                      value={verticalData.registration_number || ''}
-                      onChange={e => setVerticalData({ ...verticalData, registration_number: e.target.value.toUpperCase() })}
-                      placeholder="e.g. PB10HQ6966"
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 font-mono font-bold"
-                    />
+                <div className="space-y-4">
+                  <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-2xl">
+                    <span className="text-[10px] font-bold uppercase text-blue-800 tracking-wider">Mandatory IRDAI Motor Framework</span>
+                    <p className="text-xs text-blue-900 mt-0.5">
+                      New 4-Wheelers require 1+3 (1 Yr OD + 3 Yr TP). New 2-Wheelers require 1+5 (1 Yr OD + 5 Yr TP). Subsequent renewals are Standalone Own Damage (SAOD) while TP remains active.
+                    </p>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Make & Model</label>
-                    <input
-                      type="text"
-                      value={verticalData.model || ''}
-                      onChange={e => setVerticalData({ ...verticalData, model: e.target.value })}
-                      placeholder="e.g. Maruti Suzuki XL6"
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Motor Policy Structure *</label>
+                      <select
+                        value={verticalData.policy_structure || (verticalData.vehicle_type === 'Two Wheeler' ? 'Comprehensive (1yr OD + 1yr TP)' : 'Standalone Own Damage (SAOD Renewal)')}
+                        onChange={e => setVerticalData({ ...verticalData, policy_structure: e.target.value })}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 bg-white font-bold text-slate-800"
+                      >
+                        <option value="Standalone Own Damage (SAOD Renewal)">Standalone Own Damage (SAOD Renewal) - [Underlying 3/5-Yr TP active]</option>
+                        <option value="1+3 Bundled (New 4W: 1yr OD + 3yr TP)">1+3 Bundled (New 4-Wheeler: 1 Yr OD + 3 Yr TP)</option>
+                        <option value="1+5 Bundled (New 2W: 1yr OD + 5yr TP)">1+5 Bundled (New 2-Wheeler: 1 Yr OD + 5 Yr TP)</option>
+                        <option value="Comprehensive (1yr OD + 1yr TP)">Comprehensive (Standard 1 Yr OD + 1 Yr TP)</option>
+                        <option value="Third Party Liability Only">Third Party Liability Only</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Vehicle Registration No</label>
+                      <input
+                        type="text"
+                        value={verticalData.registration_number || ''}
+                        onChange={e => setVerticalData({ ...verticalData, registration_number: e.target.value.toUpperCase() })}
+                        placeholder="e.g. PB10JS5941"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 font-mono font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Make & Model</label>
+                      <input
+                        type="text"
+                        value={verticalData.model || ''}
+                        onChange={e => setVerticalData({ ...verticalData, model: e.target.value })}
+                        placeholder="e.g. KIA SONET G1.0 T iMT"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Insured Declared Value (IDV ₹)</label>
+                      <input
+                        type="number"
+                        value={verticalData.idv ?? ''}
+                        onChange={e => setVerticalData({ ...verticalData, idv: Number(e.target.value) })}
+                        placeholder="e.g. 1269900"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 font-mono font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">NCB Discount % & Amount (₹)</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="number"
+                          value={verticalData.ncb_percentage ?? 20}
+                          onChange={e => setVerticalData({ ...verticalData, ncb_percentage: Number(e.target.value) })}
+                          placeholder="NCB %"
+                          className="w-full px-2.5 py-2 text-xs rounded-xl border border-slate-200 font-mono"
+                        />
+                        <input
+                          type="number"
+                          value={verticalData.ncb_discount_amount ?? ''}
+                          onChange={e => setVerticalData({ ...verticalData, ncb_discount_amount: Number(e.target.value) })}
+                          placeholder="Discount ₹ (e.g. 7718)"
+                          className="w-full px-2.5 py-2 text-xs rounded-xl border border-slate-200 font-mono font-semibold text-emerald-700"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Third Party Details */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Third Party (TP) Insurer</label>
+                      <input
+                        type="text"
+                        value={verticalData.tp_insurer_name || ''}
+                        onChange={e => setVerticalData({ ...verticalData, tp_insurer_name: e.target.value })}
+                        placeholder="e.g. Bajaj Allianz General Insurance Co. Ltd."
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Third Party (TP) Policy Number</label>
+                      <input
+                        type="text"
+                        value={verticalData.tp_policy_number || ''}
+                        onChange={e => setVerticalData({ ...verticalData, tp_policy_number: e.target.value })}
+                        placeholder="e.g. OG-25-1021-1825-0030547"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 font-mono font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">TP Cover Expiry Date</label>
+                      <input
+                        type="date"
+                        value={verticalData.tp_policy_expiry_date || ''}
+                        onChange={e => setVerticalData({ ...verticalData, tp_policy_expiry_date: e.target.value })}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 font-mono text-indigo-700 font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Zero Depreciation (Nil Dep)</label>
+                      <select
+                        value={verticalData.zero_depreciation ? 'yes' : 'no'}
+                        onChange={e => setVerticalData({ ...verticalData, zero_depreciation: e.target.value === 'yes' })}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 bg-white"
+                      >
+                        <option value="yes">Yes (Included)</option>
+                        <option value="no">No</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {vertical === 'HOME_PROPERTY' && (
+                <div className="space-y-4">
+                  <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl">
+                    <span className="text-[10px] font-bold uppercase text-amber-800 tracking-wider">Multi-Property Risk Asset</span>
+                    <p className="text-xs text-amber-900 mt-0.5">
+                      Clients with multiple homes/flats (e.g. Mumbai flat & Bengaluru flat) are tagged individually with unique property identifiers and sum insured breakdown.
+                    </p>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Insured Declared Value (IDV ₹)</label>
-                    <input
-                      type="number"
-                      value={verticalData.idv ?? ''}
-                      onChange={e => setVerticalData({ ...verticalData, idv: Number(e.target.value) })}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 font-mono font-bold"
-                    />
-                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Property / Flat Identifier Tag *</label>
+                      <input
+                        type="text"
+                        value={verticalData.property_identifier || ''}
+                        onChange={e => setVerticalData({ ...verticalData, property_identifier: e.target.value })}
+                        placeholder="e.g. Flat 1302 Tower E, Oberoi Splendor (Mumbai)"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 font-bold text-slate-900"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Zero Depreciation (Nil Dep)</label>
-                    <select
-                      value={verticalData.zero_depreciation ? 'yes' : 'no'}
-                      onChange={e => setVerticalData({ ...verticalData, zero_depreciation: e.target.value === 'yes' })}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 bg-white"
-                    >
-                      <option value="yes">Yes (Included)</option>
-                      <option value="no">No</option>
-                    </select>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Risk Premises Location Address</label>
+                      <textarea
+                        rows={2}
+                        value={verticalData.risk_location_address || verticalData.property_address || ''}
+                        onChange={e => setVerticalData({ ...verticalData, risk_location_address: e.target.value, property_address: e.target.value })}
+                        placeholder="Complete property address as per policy schedule..."
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Building Structure Sum Insured (₹)</label>
+                      <input
+                        type="number"
+                        value={verticalData.structure_sum_insured ?? ''}
+                        onChange={e => setVerticalData({ ...verticalData, structure_sum_insured: Number(e.target.value) })}
+                        placeholder="e.g. 40000555"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 font-mono font-bold text-slate-900"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Home Contents Sum Insured (₹)</label>
+                      <input
+                        type="number"
+                        value={verticalData.contents_sum_insured ?? 0}
+                        onChange={e => setVerticalData({ ...verticalData, contents_sum_insured: Number(e.target.value) })}
+                        placeholder="e.g. 2000000"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 font-mono font-bold text-slate-900"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Carpet Area (Sq. Meters)</label>
+                      <input
+                        type="number"
+                        value={verticalData.carpet_area_sq_m ?? ''}
+                        onChange={e => setVerticalData({ ...verticalData, carpet_area_sq_m: Number(e.target.value) })}
+                        placeholder="e.g. 889 or 118"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Policy Tenure (Years)</label>
+                      <input
+                        type="number"
+                        value={verticalData.policy_tenure_years ?? 1}
+                        onChange={e => setVerticalData({ ...verticalData, policy_tenure_years: Number(e.target.value) })}
+                        placeholder="e.g. 1 or 2"
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 font-mono font-semibold"
+                      />
+                    </div>
                   </div>
                 </div>
               )}

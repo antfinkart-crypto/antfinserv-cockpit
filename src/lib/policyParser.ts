@@ -164,7 +164,7 @@ export function parsePolicyText(text: string, forcedVertical?: InsuranceVertical
       vertical = 'COMMERCIAL_GENERAL';
     } else if (/travel\s*insurance|schengen|overseas\s*mediclaim/i.test(cleanText)) {
       vertical = 'TRAVEL';
-    } else if (/home\s*insurance|property\s*insurance|building\s*and\s*contents/i.test(cleanText)) {
+    } else if (/home\s*insurance|property\s*insurance|building\s*and\s*contents|griha\s*raksha|bharat\s*griha/i.test(cleanText)) {
       vertical = 'HOME_PROPERTY';
     } else if (/personal\s*accident|accidental\s*death/i.test(cleanText)) {
       vertical = 'PERSONAL_ACCIDENT';
@@ -328,15 +328,25 @@ export function parsePolicyText(text: string, forcedVertical?: InsuranceVertical
     netPremium = parseFloat(totalPremBeforeGst[1].replace(/,/g, '')) || netPremium;
   }
 
-  // Fallback reconciliations
-  if (!grossPremium && netPremium) grossPremium = netPremium + taxesGst;
-  if (!netPremium && grossPremium) netPremium = taxesGst > 0 ? Math.round(grossPremium - taxesGst) : grossPremium;
+  // Fallback reconciliations with Retail Tax Exemption (0% GST on Health & Life)
+  if (vertical === 'HEALTH' || vertical === 'LIFE') {
+    taxesGst = 0;
+    grossPremium = netPremium || grossPremium;
+    if (!netPremium && grossPremium) netPremium = grossPremium;
+  } else {
+    if (!grossPremium && netPremium) grossPremium = netPremium + taxesGst;
+    if (!netPremium && grossPremium) netPremium = taxesGst > 0 ? Math.round(grossPremium - taxesGst) : grossPremium;
+  }
   if (grossPremium > 0) premConfidence = 0.97;
 
   // 9. Product Name
   let productName = '';
   if (/aspire/i.test(cleanText)) productName = 'Aspire Platinum+ Family Floater';
   else if (/private\s*car\s*insurance\s*policy\s*-\s*package/i.test(cleanText)) productName = 'Private Car Insurance Policy - Package';
+  else if (/bharat\s*griha\s*raksha/i.test(cleanText)) productName = 'ICICI Bharat Griha Raksha Policy';
+  else if (/flexi\s*griha\s*raksha/i.test(cleanText)) productName = 'Digit Flexi Griha Raksha Policy';
+  else if (/stand-alone\s*own\s*damage/i.test(cleanText)) productName = 'Digit Private Car Stand-alone Own Damage Policy';
+  else if (/two-wheeler\s*insurance/i.test(cleanText)) productName = 'Digit Two-Wheeler Insurance';
   else if (/star\s*comprehensive/i.test(cleanText)) productName = 'Star Comprehensive Health Insurance Plan (Family Floater)';
   else if (/optima\s*secure/i.test(cleanText)) productName = 'Optima Secure Family Floater';
   else if (/sampoorna\s*raksha/i.test(cleanText)) productName = 'Sampoorna Raksha Supreme Pure Term';

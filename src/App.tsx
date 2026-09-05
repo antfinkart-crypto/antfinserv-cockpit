@@ -157,10 +157,66 @@ export const App: React.FC = () => {
       if (currentInsurance.length === 0 && !hasClearedDemo) {
         currentInsurance = SYNTHETIC_INSURANCE_POLICIES;
         await localDb.putMany('insurance_policies', currentInsurance);
+      } else if (!hasClearedDemo) {
+        // Automatically merge any newly added authoritative policies (e.g. Car SAOD 1+3, 2-Wheeler, Home Mumbai, Home Bengaluru)
+        const existingIds = new Set(currentInsurance.map(p => p.id));
+        const missing = SYNTHETIC_INSURANCE_POLICIES.filter(p => !existingIds.has(p.id));
+        if (missing.length > 0) {
+          currentInsurance = [...currentInsurance, ...missing];
+          await localDb.putMany('insurance_policies', missing);
+        }
       }
+
+      // Enforce zero retail GST on Health & Life, and ensure rupee NCB amount is populated
+      currentInsurance = currentInsurance.map(p => {
+        let modified = false;
+        let updated = { ...p };
+        if ((p.vertical === 'HEALTH' || p.vertical === 'LIFE') && p.taxes_gst > 0) {
+          updated.taxes_gst = 0;
+          updated.gross_premium = updated.net_premium;
+          modified = true;
+        }
+        if (p.vertical === 'HEALTH' && p.vertical_data && !p.vertical_data.ncb_current_year_amount && p.vertical_data.cumulative_bonus_percentage) {
+          updated.vertical_data = {
+            ...p.vertical_data,
+            ncb_current_year_amount: Math.round((p.sum_insured * (p.vertical_data.cumulative_bonus_percentage || 0)) / 100)
+          };
+          modified = true;
+        }
+        if (modified) {
+          localDb.put('insurance_policies', updated);
+        }
+        return updated;
+      });
 
       // Automatically synchronize health policy covered members (spouse, children, parents) into ClientMasterRecord
       let updatedMaster = [...masterRecords];
+      const hasSwaminathan = updatedMaster.some(c => c.pan === 'ADLPA7633H' || c.investor_name.includes('SWAMINATHAN'));
+      if (!hasSwaminathan) {
+        const swamiClient: ClientMasterRecord = {
+          client_id: 'cli_swaminathan_arunachalam',
+          investor_name: 'SWAMINATHAN ARUNACHALAM',
+          pan: 'ADLPA7633H',
+          dob: '1974-12-18',
+          gender: 'Male',
+          mobile: '9888732823',
+          email: 'tarunahuja@pbpartners.com',
+          address_line_1: 'Flat No 1302 Tower E Oberoi Splendor Complex, JVLR Andheri East',
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          pincode: '400060',
+          aum: 0,
+          mapping_role: 'Individual',
+          source_system: 'INSURANCE',
+          created_date: '2026-08-20',
+          data_quality_flags: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        updatedMaster = [swamiClient, ...updatedMaster];
+        await localDb.put('client_master', swamiClient);
+      }
+
       for (const pol of currentInsurance) {
         const syncRes = syncPolicyMembersToClientMaster(pol, updatedMaster);
         if (syncRes.newMembersAdded.length > 0) {

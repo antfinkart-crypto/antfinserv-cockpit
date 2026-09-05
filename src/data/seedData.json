@@ -2143,6 +2143,23 @@
       "created_at": "2026-09-03T19:37:03.481Z",
       "updated_at": "2026-09-03T19:37:03.481Z",
       "data_quality_flags": []
+    },
+    {
+      "client_id": "cli_swaminathan_arunachalam",
+      "investor_name": "SWAMINATHAN ARUNACHALAM",
+      "pan": "ADLPA7633H",
+      "dob": "1974-12-18",
+      "gender": "Male",
+      "mobile": "9888732823",
+      "email": "tarunahuja@pbpartners.com",
+      "address_line_1": "Flat No 1302 Tower E Oberoi Splendor Complex, JVLR Andheri East",
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "pincode": "400060",
+      "aum": 0,
+      "mapping_role": "Individual",
+      "source_system": "INSURANCE",
+      "created_date": "2026-08-20"
     }
   ],
   "clients": [

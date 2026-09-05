@@ -783,16 +783,33 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
 
                     {/* Client & Product Name */}
                     <div>
-                      <h4 className="font-extrabold text-base text-slate-900">{pol.client_name}</h4>
-                      <p className="text-xs text-slate-600 line-clamp-1 mt-0.5">{pol.product_name}</p>
-                      <p className="text-[11px] font-mono text-slate-400 mt-1">
-                        Policy #{pol.policy_number}
-                        {(pol.vertical_data as any)?.registration_number && (
-                          <span className="ml-2 font-bold text-blue-700 font-sans">
-                            ({(pol.vertical_data as any).registration_number})
+                      <div className="flex items-start justify-between gap-1">
+                        <h4 className="font-extrabold text-base text-slate-900">{pol.client_name}</h4>
+                        {(pol.vertical_data as any)?.property_identifier && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200 truncate max-w-[160px]" title={(pol.vertical_data as any).property_identifier}>
+                            🏠 {(pol.vertical_data as any).property_identifier}
                           </span>
                         )}
-                      </p>
+                      </div>
+                      {pol.proposer_name && pol.proposer_name !== pol.client_name && (
+                        <p className="text-[11px] text-indigo-700 font-medium">
+                          Proposer: <span className="font-semibold">{pol.proposer_name}</span>
+                        </p>
+                      )}
+                      <p className="text-xs text-slate-600 line-clamp-1 mt-0.5">{pol.product_name}</p>
+                      <div className="text-[11px] font-mono text-slate-400 mt-1 flex flex-wrap items-center gap-1.5">
+                        <span>Policy #{pol.policy_number}</span>
+                        {(pol.vertical_data as any)?.registration_number && (
+                          <span className="font-bold text-blue-700 font-sans bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded">
+                            {(pol.vertical_data as any).registration_number}
+                          </span>
+                        )}
+                        {(pol.vertical_data as any)?.policy_structure && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-sans">
+                            {(pol.vertical_data as any).policy_structure.includes('1+3') ? '1+3 Bundled' : (pol.vertical_data as any).policy_structure.includes('1+5') ? '1+5 Bundled' : (pol.vertical_data as any).policy_structure.includes('SAOD') ? 'SAOD Renewal' : 'Comprehensive'}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Coverage & Premium */}
@@ -1241,7 +1258,17 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
                     Proposer: <span className="font-bold">{selectedPolicy.proposer_name}</span>
                   </p>
                 )}
-                <p className="text-xs text-slate-500 font-mono">{selectedPolicy.policy_number}</p>
+                {(selectedPolicy.vertical_data as any)?.property_identifier && (
+                  <p className="text-xs font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-lg inline-block mt-1">
+                    🏠 {(selectedPolicy.vertical_data as any).property_identifier}
+                  </p>
+                )}
+                {(selectedPolicy.vertical_data as any)?.policy_structure && (
+                  <p className="text-xs font-bold text-blue-900 bg-blue-100 border border-blue-300 px-2.5 py-0.5 rounded-lg inline-block mt-1">
+                    🚗 {(selectedPolicy.vertical_data as any).policy_structure}
+                  </p>
+                )}
+                <p className="text-xs text-slate-500 font-mono mt-0.5">{selectedPolicy.policy_number}</p>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -1284,19 +1311,67 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
               <div>
                 <span className="text-[10px] text-slate-400 font-bold uppercase">Sum Insured</span>
                 <p className="text-base font-extrabold text-slate-900">₹{selectedPolicy.sum_insured.toLocaleString('en-IN')}</p>
+                {selectedPolicy.vertical === 'HOME_PROPERTY' && (selectedPolicy.vertical_data as any)?.structure_sum_insured && (
+                  <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">
+                    Structure: ₹{(selectedPolicy.vertical_data as any).structure_sum_insured.toLocaleString('en-IN')}
+                    {(selectedPolicy.vertical_data as any)?.contents_sum_insured ? ` | Contents: ₹${(selectedPolicy.vertical_data as any).contents_sum_insured.toLocaleString('en-IN')}` : ''}
+                  </span>
+                )}
               </div>
               <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Net Premium</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase">
+                  {selectedPolicy.vertical === 'HEALTH' || selectedPolicy.vertical === 'LIFE' ? 'Premium (0% GST)' : 'Net Premium'}
+                </span>
                 <p className="text-base font-extrabold text-amber-700">₹{selectedPolicy.net_premium.toLocaleString('en-IN')}</p>
+                {selectedPolicy.vertical === 'HEALTH' || selectedPolicy.vertical === 'LIFE' ? (
+                  <span className="text-[10px] text-emerald-700 font-bold block">✓ Retail Tax Exempt (No GST)</span>
+                ) : (
+                  <span className="text-[10px] text-slate-500 block">Gross: ₹{selectedPolicy.gross_premium.toLocaleString('en-IN')} (incl GST)</span>
+                )}
               </div>
               <div>
                 <span className="text-[10px] text-slate-400 font-bold uppercase">Inception Date</span>
                 <p className="font-semibold text-slate-700">{selectedPolicy.inception_date}</p>
               </div>
               <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Expiry Date</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase">
+                  {selectedPolicy.vertical === 'MOTOR' ? 'Own Damage (OD) Expiry' : selectedPolicy.vertical === 'HOME_PROPERTY' && (selectedPolicy.vertical_data as any)?.policy_tenure_years === 2 ? 'Expiry (2-Yr Term)' : 'Expiry Date'}
+                </span>
                 <p className="font-semibold text-slate-700">{selectedPolicy.expiry_date}</p>
               </div>
+
+              {/* Special NCB Block for Health */}
+              {selectedPolicy.vertical === 'HEALTH' && (
+                <div className="col-span-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-emerald-800">NCB for Current Year</span>
+                    <p className="text-sm font-extrabold text-emerald-900">
+                      ₹{((selectedPolicy.vertical_data as any)?.ncb_current_year_amount || ((selectedPolicy.sum_insured * ((selectedPolicy.vertical_data as any)?.cumulative_bonus_percentage || 0)) / 100) || 0).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+                  <span className="text-[11px] text-emerald-700 font-medium">Exact rupee bonus from renewal schedule</span>
+                </div>
+              )}
+
+              {/* Special Third Party Block for Motor */}
+              {selectedPolicy.vertical === 'MOTOR' && (selectedPolicy.vertical_data as any)?.tp_policy_expiry_date && (
+                <div className="col-span-2 p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase text-blue-800">Underlying Third Party (TP) Cover</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                      Valid till {(selectedPolicy.vertical_data as any).tp_policy_expiry_date}
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-950 font-medium">
+                    TP Insurer: <span className="font-bold">{(selectedPolicy.vertical_data as any).tp_insurer_name || 'Active Under 1+3 Mandate'}</span>
+                  </p>
+                  {(selectedPolicy.vertical_data as any)?.tp_policy_number && (
+                    <p className="text-[11px] text-blue-800 font-mono">
+                      TP Policy #: {(selectedPolicy.vertical_data as any).tp_policy_number}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Covered Members List */}
@@ -1348,12 +1423,40 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
               <div className="space-y-2">
                 <h4 className="font-bold text-xs text-slate-900">Vertical Policy Specifications</h4>
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5 font-mono text-slate-700 max-h-60 overflow-y-auto">
-                  {Object.entries(selectedPolicy.vertical_data).map(([k, v]) => (
-                    <div key={k} className="flex items-center justify-between">
-                      <span className="text-slate-400 text-[11px] uppercase font-sans font-bold">{k.replace(/_/g, ' ')}:</span>
-                      <span className="font-semibold text-slate-900">{String(v)}</span>
-                    </div>
-                  ))}
+                  {Object.entries(selectedPolicy.vertical_data).map(([k, v]) => {
+                    const label = k === 'ncb_current_year_amount'
+                      ? 'NCB AMOUNT FOR CURRENT YEAR'
+                      : k === 'policy_structure'
+                      ? 'POLICY STRUCTURE'
+                      : k === 'property_identifier'
+                      ? 'PROPERTY IDENTIFIER'
+                      : k === 'risk_location_address'
+                      ? 'RISK PREMISES ADDRESS'
+                      : k === 'structure_sum_insured'
+                      ? 'BUILDING STRUCTURE SI'
+                      : k === 'contents_sum_insured'
+                      ? 'HOME CONTENTS SI'
+                      : k === 'tp_insurer_name'
+                      ? 'THIRD PARTY (TP) INSURER'
+                      : k === 'tp_policy_number'
+                      ? 'THIRD PARTY (TP) POLICY NO'
+                      : k === 'tp_policy_expiry_date'
+                      ? 'TP COVER EXPIRY DATE'
+                      : k === 'ncb_discount_amount'
+                      ? 'NCB DISCOUNT AMOUNT'
+                      : k.replace(/_/g, ' ').toUpperCase();
+
+                    const displayVal = (k === 'ncb_current_year_amount' || k === 'structure_sum_insured' || k === 'contents_sum_insured' || k === 'idv' || k === 'ncb_discount_amount') && typeof v === 'number'
+                      ? `₹${v.toLocaleString('en-IN')}`
+                      : String(v);
+
+                    return (
+                      <div key={k} className="flex items-center justify-between py-0.5">
+                        <span className="text-slate-500 text-[11px] font-sans font-bold">{label}:</span>
+                        <span className="font-bold text-slate-900 text-right">{displayVal}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
