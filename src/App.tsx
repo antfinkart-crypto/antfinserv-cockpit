@@ -20,6 +20,7 @@ import { getSupabase } from './lib/supabase';
 import { calculateShieldAlerts } from './lib/sipShieldEngine';
 import { getCelebrationAlerts } from './lib/celebrationEngine';
 import { syncPolicyMembersToClientMaster } from './lib/insuranceClientSync';
+import { isSamePersonOrEntity } from './lib/entityResolution';
 import { SYNTHETIC_INSURANCE_POLICIES } from './data/syntheticInsuranceFixtures';
 import seedData from './data/seedData.json';
 import {
@@ -224,7 +225,45 @@ export const App: React.FC = () => {
           await localDb.putMany('client_master', syncRes.newMembersAdded);
         }
       }
-      masterRecords = updatedMaster;
+
+      // 6. Institutional Multi-String Entity Resolution Deduplication Pass
+      const deduplicatedMaster: ClientMasterRecord[] = [];
+      const removedClientIds: string[] = [];
+
+      for (const cmRecord of updatedMaster) {
+        const matchIdx = deduplicatedMaster.findIndex(existing => isSamePersonOrEntity(existing, cmRecord));
+        if (matchIdx !== -1) {
+          const existing = deduplicatedMaster[matchIdx];
+          const bestName = (cmRecord.investor_name && cmRecord.investor_name.length > existing.investor_name.length && !cmRecord.investor_name.includes('.'))
+            ? cmRecord.investor_name
+            : existing.investor_name;
+          const merged: ClientMasterRecord = {
+            ...existing,
+            investor_name: bestName,
+            pan: existing.pan || cmRecord.pan || null,
+            dob: existing.dob || cmRecord.dob || null,
+            gender: (existing.gender && existing.gender !== 'Not Specified') ? existing.gender : cmRecord.gender,
+            mobile: existing.mobile || cmRecord.mobile || '',
+            email: existing.email || cmRecord.email || '',
+            address_line_1: existing.address_line_1 || cmRecord.address_line_1 || '',
+            city: existing.city || cmRecord.city || '',
+            state: existing.state || cmRecord.state || '',
+            pincode: existing.pincode || cmRecord.pincode || '',
+            aum: Math.max(existing.aum || 0, cmRecord.aum || 0),
+            updated_at: new Date().toISOString()
+          };
+          deduplicatedMaster[matchIdx] = merged;
+          removedClientIds.push(cmRecord.client_id);
+        } else {
+          deduplicatedMaster.push(cmRecord);
+        }
+      }
+
+      for (const rId of removedClientIds) {
+        await localDb.delete('client_master', rId);
+        await localDb.delete('clients', rId);
+      }
+      masterRecords = deduplicatedMaster;
 
       setClientMaster(masterRecords);
       setClientImportHistory(imph.sort((a, b) => new Date(b.imported_at).getTime() - new Date(a.imported_at).getTime()));
@@ -535,6 +574,83 @@ export const App: React.FC = () => {
     setClients(prev => prev.filter(c => (c.client_id || (c as any).id) !== clientId));
   };
 
+  // Bulk Delete Clients Handler
+  const handleBulkDeleteClients = async (clientIds: string[]) => {
+    for (const cid of clientIds) {
+      await localDb.delete('client_master', cid);
+      await localDb.delete('clients', cid);
+    }
+    const idSet = new Set(clientIds);
+    setClientMaster(prev => prev.filter(c => !idSet.has(c.client_id)));
+    setClients(prev => prev.filter(c => !idSet.has(c.client_id || (c as any).id)));
+  };
+
+  // Bulk Delete Policies Handler
+  const handleBulkDeletePolicies = async (policyIds: string[]) => {
+    const targetPolicies = insurancePolicies.filter(p => policyIds.includes(p.id));
+    for (const pid of policyIds) {
+      await localDb.delete('insurance_policies', pid);
+    }
+    for (const p of targetPolicies) {
+      if (p.policy_number) {
+        await localDb.delete('policies', p.policy_number);
+      }
+    }
+    const idSet = new Set(policyIds);
+    setInsurancePolicies(prev => prev.filter(p => !idSet.has(p.id)));
+    setPolicies(prev => prev.filter(p => !idSet.has(p.id) && !targetPolicies.some(tp => tp.policy_number === p.policy_number)));
+  };
+
+  // Update Holding & Auto-Recalculate Client AUM
+  const handleUpdateHolding = async (updatedHolding: MfHolding) => {
+    await localDb.put('holdings', updatedHolding);
+    const nextHoldings = holdings.map(h => h.id === updatedHolding.id ? updatedHolding : h);
+    setHoldings(nextHoldings);
+
+    // Auto-recalculate client AUM across client_master & clients
+    const matchedClient = clientMaster.find(c =>
+      (c.pan && c.pan === updatedHolding.pan) ||
+      (c.investor_name && c.investor_name.toLowerCase() === updatedHolding.investor_name.toLowerCase())
+    );
+    if (matchedClient) {
+      const clientAllHoldings = nextHoldings.filter(h =>
+        (matchedClient.pan && h.pan === matchedClient.pan) ||
+        (h.investor_name && h.investor_name.toLowerCase() === matchedClient.investor_name.toLowerCase())
+      );
+      const newAum = clientAllHoldings.reduce((sum, h) => sum + (h.current_value || 0), 0);
+      const updatedClient = { ...matchedClient, aum: newAum, updated_at: new Date().toISOString() };
+      await localDb.put('client_master', updatedClient);
+      setClientMaster(prev => prev.map(c => c.client_id === updatedClient.client_id ? updatedClient : c));
+      setClients(prev => prev.map(c => (c.client_id || (c as any).id) === updatedClient.client_id ? { ...c, aum: newAum } : c));
+    }
+  };
+
+  // Delete Holding & Auto-Recalculate Client AUM
+  const handleDeleteHolding = async (holdingId: string) => {
+    const targetHolding = holdings.find(h => h.id === holdingId);
+    await localDb.delete('holdings', holdingId);
+    const nextHoldings = holdings.filter(h => h.id !== holdingId);
+    setHoldings(nextHoldings);
+
+    if (targetHolding) {
+      const matchedClient = clientMaster.find(c =>
+        (c.pan && c.pan === targetHolding.pan) ||
+        (c.investor_name && c.investor_name.toLowerCase() === targetHolding.investor_name.toLowerCase())
+      );
+      if (matchedClient) {
+        const clientAllHoldings = nextHoldings.filter(h =>
+          (matchedClient.pan && h.pan === matchedClient.pan) ||
+          (h.investor_name && h.investor_name.toLowerCase() === matchedClient.investor_name.toLowerCase())
+        );
+        const newAum = clientAllHoldings.reduce((sum, h) => sum + (h.current_value || 0), 0);
+        const updatedClient = { ...matchedClient, aum: newAum, updated_at: new Date().toISOString() };
+        await localDb.put('client_master', updatedClient);
+        setClientMaster(prev => prev.map(c => c.client_id === updatedClient.client_id ? updatedClient : c));
+        setClients(prev => prev.map(c => (c.client_id || (c as any).id) === updatedClient.client_id ? { ...c, aum: newAum } : c));
+      }
+    }
+  };
+
   // Two-Way Sync Handler
   const handleSync = async () => {
     setIsSyncing(true);
@@ -607,6 +723,10 @@ export const App: React.FC = () => {
             onSaveManualEdit={handleSaveClientManualEdit}
             onResolveReview={handleResolveReview}
             onDeleteClient={handleDeleteClient}
+            onBulkDeleteClients={handleBulkDeleteClients}
+            onUpdateHolding={handleUpdateHolding}
+            onDeleteHolding={handleDeleteHolding}
+            onDeletePolicy={handleDeleteInsurancePolicy}
             onNavigateToContentStudio={() => setActiveTab('content')}
           />
         )}
@@ -618,6 +738,8 @@ export const App: React.FC = () => {
             batches={batches}
             onSaveHoldings={handleSaveHoldings}
             onSaveSips={handleSaveSips}
+            onUpdateHolding={handleUpdateHolding}
+            onDeleteHolding={handleDeleteHolding}
           />
         )}
 
@@ -648,6 +770,7 @@ export const App: React.FC = () => {
               }
             }}
             onDeletePolicy={handleDeleteInsurancePolicy}
+            onBulkDeletePolicies={handleBulkDeletePolicies}
             onClearDemoPolicies={handleClearDemoPolicies}
             onUpdateClients={async (newClients) => {
               setClientMaster(newClients);
@@ -700,6 +823,10 @@ export const App: React.FC = () => {
             onSaveManualEdit={handleSaveClientManualEdit}
             onResolveReview={handleResolveReview}
             onDeleteClient={handleDeleteClient}
+            onBulkDeleteClients={handleBulkDeleteClients}
+            onUpdateHolding={handleUpdateHolding}
+            onDeleteHolding={handleDeleteHolding}
+            onDeletePolicy={handleDeleteInsurancePolicy}
             onNavigateToContentStudio={() => setActiveTab('content')}
           />
         )}

@@ -6,6 +6,7 @@ import {
   ProtectionAsset,
   InsurancePolicy
 } from '../types';
+import { isSamePersonOrEntity } from './entityResolution';
 
 export const STANDARD_PRODUCTS = [
   'Mutual Funds',
@@ -58,8 +59,24 @@ export function isClientMatchingPolicy(
       if (m.client_id && m.client_id === client.client_id) return true;
       const mNorm = normalizeStr(m.member_name);
       if (mNorm && (cNorm === mNorm || (cNorm.length > 5 && mNorm.includes(cNorm)))) return true;
+      if (isSamePersonOrEntity(client, {
+        name: m.member_name,
+        dob: m.dob,
+        gender: m.gender,
+        mobile: 'proposer_mobile' in policy ? policy.proposer_mobile : undefined
+      }).isMatch) return true;
     }
   }
+
+  // Final 3-tier entity check between client and policy proposer/insured
+  if (isSamePersonOrEntity(client, {
+    name: 'client_name' in policy ? policy.client_name : (policy as ProtectionAsset).client_name,
+    proposer_name: 'proposer_name' in policy ? policy.proposer_name : (policy as ProtectionAsset).primary_member_name,
+    pan: 'proposer_pan' in policy ? (policy as any).proposer_pan : undefined,
+    mobile: 'proposer_mobile' in policy ? policy.proposer_mobile : undefined,
+    email: 'proposer_email' in policy ? policy.proposer_email : undefined,
+    address: 'vertical_data' in policy ? (policy.vertical_data as any)?.risk_location_address : undefined
+  }).isMatch) return true;
 
   return false;
 }
@@ -219,7 +236,7 @@ export function getClientInsuranceSummary(
       seenNumbers.add(p.policy_number);
       verticals.add(p.vertical);
       totalSumInsured += p.sum_insured || 0;
-      totalPremium += p.net_premium || 0;
+      totalPremium += (p.gross_premium || p.net_premium || 0);
       if (!earliestRenewal || p.renewal_due_date < earliestRenewal) {
         earliestRenewal = p.renewal_due_date;
       }
@@ -229,7 +246,7 @@ export function getClientInsuranceSummary(
         insurer: p.insurer_name,
         vertical: p.vertical,
         sum_insured: p.sum_insured,
-        premium: p.net_premium,
+        premium: p.gross_premium || p.net_premium,
         expiry_date: p.expiry_date
       });
     }
@@ -241,7 +258,7 @@ export function getClientInsuranceSummary(
       const v = (p.policy_type || '').includes('Motor') ? 'MOTOR' : (p.policy_type || '').includes('Term') ? 'LIFE' : 'HEALTH';
       verticals.add(v);
       totalSumInsured += p.sum_insured || 0;
-      totalPremium += p.net_premium || 0;
+      totalPremium += ((p as any).gross_premium || p.net_premium || 0);
       if (p.expiry_date && (!earliestRenewal || p.expiry_date < earliestRenewal)) {
         earliestRenewal = p.expiry_date;
       }
@@ -251,7 +268,7 @@ export function getClientInsuranceSummary(
         insurer: p.insurer,
         vertical: v,
         sum_insured: p.sum_insured,
-        premium: p.net_premium,
+        premium: (p as any).gross_premium || p.net_premium,
         expiry_date: p.expiry_date
       });
     }

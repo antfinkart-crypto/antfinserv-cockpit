@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { MfHolding, ActiveSip, ImportBatch } from '../types';
 import { parseHoldingReport, parseActiveSipReport, ParseResult } from '../lib/mfReportParser';
-import { TrendingUp, Upload, FileText, CheckCircle2, AlertTriangle, Search, Check } from 'lucide-react';
+import { TrendingUp, Upload, FileText, CheckCircle2, AlertTriangle, Search, Check, Edit3, Trash2 } from 'lucide-react';
+import { EditHoldingModal } from './EditHoldingModal';
 
 interface MutualFundsWorkspaceProps {
   holdings: MfHolding[];
@@ -9,6 +10,8 @@ interface MutualFundsWorkspaceProps {
   batches: ImportBatch[];
   onSaveHoldings: (newHoldings: MfHolding[], batch: ImportBatch) => Promise<void>;
   onSaveSips: (newSips: ActiveSip[], batch: ImportBatch) => Promise<void>;
+  onUpdateHolding?: (updated: MfHolding) => Promise<void>;
+  onDeleteHolding?: (holdingId: string) => Promise<void>;
 }
 
 export const MutualFundsWorkspace: React.FC<MutualFundsWorkspaceProps> = ({
@@ -16,8 +19,14 @@ export const MutualFundsWorkspace: React.FC<MutualFundsWorkspaceProps> = ({
   sips,
   batches,
   onSaveHoldings,
-  onSaveSips
+  onSaveSips,
+  onUpdateHolding,
+  onDeleteHolding
 }) => {
+  const [holdingToEdit, setHoldingToEdit] = useState<MfHolding | null>(null);
+  const [isEditHoldingModalOpen, setIsEditHoldingModalOpen] = useState(false);
+  const [holdingToDelete, setHoldingToDelete] = useState<MfHolding | null>(null);
+  const [isDeleteHoldingConfirmOpen, setIsDeleteHoldingConfirmOpen] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<'holdings' | 'sips' | 'batches'>('holdings');
   const [searchTerm, setSearchTerm] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -458,12 +467,13 @@ export const MutualFundsWorkspace: React.FC<MutualFundsWorkspaceProps> = ({
                       <th className="px-5 py-3.5 text-right">Invested Cost</th>
                       <th className="px-5 py-3.5 text-right">Current Valuation</th>
                       <th className="px-5 py-3.5 text-center">Linked SIP</th>
+                      <th className="px-5 py-3.5 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredHoldings.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-slate-400">No matching holding records found.</td>
+                        <td colSpan={8} className="py-8 text-center text-slate-400">No matching holding records found.</td>
                       </tr>
                     ) : (
                       filteredHoldings.map((h) => {
@@ -497,6 +507,34 @@ export const MutualFundsWorkspace: React.FC<MutualFundsWorkspaceProps> = ({
                               ) : (
                                 <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-xs">None</span>
                               )}
+                            </td>
+                            <td className="px-5 py-3.5 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setHoldingToEdit(h);
+                                    setIsEditHoldingModalOpen(true);
+                                  }}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 transition-colors cursor-pointer"
+                                  title="Edit Holding"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                {onDeleteHolding && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setHoldingToDelete(h);
+                                      setIsDeleteHoldingConfirmOpen(true);
+                                    }}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                    title="Delete Holding"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -602,6 +640,68 @@ export const MutualFundsWorkspace: React.FC<MutualFundsWorkspaceProps> = ({
             </div>
           )}
         </>
+      )}
+
+      {/* EDIT HOLDING MODAL */}
+      {isEditHoldingModalOpen && holdingToEdit && (
+        <EditHoldingModal
+          isOpen={isEditHoldingModalOpen}
+          holding={holdingToEdit}
+          onClose={() => {
+            setIsEditHoldingModalOpen(false);
+            setHoldingToEdit(null);
+          }}
+          onSave={async (updated) => {
+            if (onUpdateHolding) {
+              await onUpdateHolding(updated);
+            }
+          }}
+        />
+      )}
+
+      {/* DELETE HOLDING CONFIRMATION MODAL */}
+      {isDeleteHoldingConfirmOpen && holdingToDelete && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white max-w-md w-full rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-1.5">
+              <h3 className="text-lg font-black text-slate-900">Delete Mutual Fund Holding?</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Are you sure you want to permanently delete the holding in <strong className="text-slate-900">{holdingToDelete.scheme_name}</strong> (Folio: {holdingToDelete.folio_number}) for <strong className="text-slate-900">{holdingToDelete.investor_name}</strong>?
+              </p>
+              <p className="text-[11px] text-rose-600 font-semibold mt-1">
+                ⚠️ Client AUM will be recalculated and updated in Client Master.
+              </p>
+            </div>
+            <div className="pt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeleteHoldingConfirmOpen(false);
+                  setHoldingToDelete(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (onDeleteHolding && holdingToDelete) {
+                    await onDeleteHolding(holdingToDelete.id);
+                    setIsDeleteHoldingConfirmOpen(false);
+                    setHoldingToDelete(null);
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm cursor-pointer transition-colors"
+              >
+                Yes, Delete Holding
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -274,9 +274,15 @@ export interface InsurancePolicy {
   primary_client_id?: string;
   client_name: string;
   proposer_name: string;
+  proposer_pan?: string;
   proposer_mobile?: string;
   proposer_email?: string;
   family_id?: string; // Household link
+
+  // Convenience aliases for display
+  policy_type?: string;
+  plan_name?: string;
+  property_address?: string;
 
   // Financials (INR)
   sum_insured: number;

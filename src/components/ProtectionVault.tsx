@@ -56,6 +56,7 @@ interface ProtectionVaultProps {
   onOpenUploadModal: () => void;
   onUpdatePolicy?: (policy: InsurancePolicy) => void;
   onDeletePolicy?: (policyId: string) => void;
+  onBulkDeletePolicies?: (policyIds: string[]) => void;
   onClearDemoPolicies?: () => void;
   onUpdateClients?: (updatedClients: ClientMasterRecord[]) => void;
   onNavigateToContentStudio?: (preset?: string) => void;
@@ -68,10 +69,12 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
   onOpenUploadModal,
   onUpdatePolicy,
   onDeletePolicy,
+  onBulkDeletePolicies,
   onClearDemoPolicies,
   onUpdateClients,
   onNavigateToContentStudio
 }) => {
+  const [selectedPolicyIds, setSelectedPolicyIds] = useState<Set<string>>(new Set());
   // Use authoritative insurancePolicies directly (respecting deletions), with fallback to synthetic only if uninitialized
   const activeInsurancePolicies = useMemo<InsurancePolicy[]>(() => {
     if (insurancePolicies) {
@@ -750,6 +753,51 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
             </div>
           </div>
 
+          {/* Multi-Select Batch Action Bar for Policies */}
+          {selectedPolicyIds.size > 0 && (
+            <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in duration-150">
+              <div className="flex items-center gap-3">
+                <span className="font-extrabold text-amber-900">
+                  {selectedPolicyIds.size} {selectedPolicyIds.size === 1 ? 'Policy' : 'Policies'} Selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allIds = new Set(filteredPolicies.map(p => p.id));
+                    setSelectedPolicyIds(allIds);
+                  }}
+                  className="text-amber-800 underline hover:text-amber-950 font-semibold cursor-pointer"
+                >
+                  Select all ({filteredPolicies.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPolicyIds(new Set())}
+                  className="text-slate-500 hover:text-slate-700 font-semibold cursor-pointer"
+                >
+                  Deselect
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`Are you sure you want to permanently delete ${selectedPolicyIds.size} selected policies?`)) {
+                    if (onBulkDeletePolicies) {
+                      onBulkDeletePolicies(Array.from(selectedPolicyIds));
+                    } else if (onDeletePolicy) {
+                      selectedPolicyIds.forEach(id => onDeletePolicy(id));
+                    }
+                    setSelectedPolicyIds(new Set());
+                  }
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete Selected ({selectedPolicyIds.size})
+              </button>
+            </div>
+          )}
+
           {/* Policies Grid */}
           {filteredPolicies.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border border-slate-200 bg-white space-y-2">
@@ -770,12 +818,26 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
                     className="glass-panel p-5 rounded-2xl border border-slate-200 hover:border-emerald-300 transition-all shadow-xs space-y-4 cursor-pointer"
                     onClick={() => setSelectedPolicy(pol)}
                   >
-                    {/* Top Row: Vertical & Insurer */}
+                    {/* Top Row: Checkbox, Vertical & Insurer */}
                     <div className="flex items-start justify-between gap-2">
-                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${badge.bg}`}>
-                        <BadgeIcon className="w-3 h-3" />
-                        <span>{badge.label}</span>
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedPolicyIds.has(pol.id)}
+                          onClick={e => e.stopPropagation()}
+                          onChange={e => {
+                            const next = new Set(selectedPolicyIds);
+                            if (e.target.checked) next.add(pol.id);
+                            else next.delete(pol.id);
+                            setSelectedPolicyIds(next);
+                          }}
+                          className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-0 cursor-pointer"
+                        />
+                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${badge.bg}`}>
+                          <BadgeIcon className="w-3 h-3" />
+                          <span>{badge.label}</span>
+                        </span>
+                      </div>
                       <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full">
                         {pol.insurer_name}
                       </span>
@@ -821,10 +883,17 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
                         </p>
                       </div>
                       <div>
-                        <span className="text-[10px] font-bold uppercase text-slate-400">Net Premium</span>
+                        <span className="text-[10px] font-bold uppercase text-slate-400">Gross Premium</span>
                         <p className="font-extrabold text-sm text-amber-700">
-                          ₹{pol.net_premium.toLocaleString('en-IN')}
+                          ₹{(pol.gross_premium || pol.net_premium).toLocaleString('en-IN')}
                         </p>
+                        {pol.gross_premium && pol.gross_premium !== pol.net_premium ? (
+                          <span className="text-[9px] text-slate-500 block -mt-0.5">
+                            Net: ₹{pol.net_premium.toLocaleString('en-IN')} + GST
+                          </span>
+                        ) : (
+                          <span className="text-[9px] text-emerald-600 font-semibold block -mt-0.5">0% GST Exempt</span>
+                        )}
                       </div>
                     </div>
 
@@ -1320,13 +1389,15 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
               </div>
               <div>
                 <span className="text-[10px] text-slate-400 font-bold uppercase">
-                  {selectedPolicy.vertical === 'HEALTH' || selectedPolicy.vertical === 'LIFE' ? 'Premium (0% GST)' : 'Net Premium'}
+                  {selectedPolicy.vertical === 'HEALTH' || selectedPolicy.vertical === 'LIFE' ? 'Total Premium (0% GST)' : 'Gross Premium (Total Payable)'}
                 </span>
-                <p className="text-base font-extrabold text-amber-700">₹{selectedPolicy.net_premium.toLocaleString('en-IN')}</p>
+                <p className="text-base font-extrabold text-amber-700">₹{(selectedPolicy.gross_premium || selectedPolicy.net_premium).toLocaleString('en-IN')}</p>
                 {selectedPolicy.vertical === 'HEALTH' || selectedPolicy.vertical === 'LIFE' ? (
                   <span className="text-[10px] text-emerald-700 font-bold block">✓ Retail Tax Exempt (No GST)</span>
                 ) : (
-                  <span className="text-[10px] text-slate-500 block">Gross: ₹{selectedPolicy.gross_premium.toLocaleString('en-IN')} (incl GST)</span>
+                  <span className="text-[10px] text-slate-500 block">
+                    Net: ₹{selectedPolicy.net_premium.toLocaleString('en-IN')} {selectedPolicy.taxes_gst ? `(+ ₹${selectedPolicy.taxes_gst.toLocaleString('en-IN')} GST)` : '(incl GST)'}
+                  </span>
                 )}
               </div>
               <div>

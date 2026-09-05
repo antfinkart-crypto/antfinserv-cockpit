@@ -15,7 +15,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   ExternalLink,
-  MessageSquare
+  MessageSquare,
+  Trash2
 } from 'lucide-react';
 import {
   ClientMasterRecord,
@@ -24,8 +25,10 @@ import {
   ProtectionAsset,
   ClientChangeLog
 } from '../types';
+import { InsurancePolicy } from '../types/insurance';
 import { calculateCurrentAge } from '../lib/clientMasterParser';
 import { generateWhatsAppUrl } from '../lib/whatsAppRouter';
+import { EditHoldingModal } from './EditHoldingModal';
 
 interface ClientDetailDrawerProps {
   client: ClientMasterRecord | null;
@@ -35,9 +38,13 @@ interface ClientDetailDrawerProps {
   holdings: MfHolding[];
   sips: ActiveSip[];
   policies: ProtectionAsset[];
+  insurancePolicies?: InsurancePolicy[];
   changeLogs: ClientChangeLog[];
   onOpenEdit: (client: ClientMasterRecord) => void;
   onSelectClient: (client: ClientMasterRecord) => void;
+  onUpdateHolding?: (updated: MfHolding) => Promise<void>;
+  onDeleteHolding?: (holdingId: string) => Promise<void>;
+  onDeletePolicy?: (policyId: string) => void;
 }
 
 export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
@@ -48,20 +55,41 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
   holdings,
   sips,
   policies,
+  insurancePolicies = [],
   changeLogs,
   onOpenEdit,
-  onSelectClient
+  onSelectClient,
+  onUpdateHolding,
+  onDeleteHolding,
+  onDeletePolicy
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'family' | 'portfolio' | 'audit'>('overview');
+  const [holdingToEdit, setHoldingToEdit] = useState<MfHolding | null>(null);
+  const [isEditHoldingModalOpen, setIsEditHoldingModalOpen] = useState(false);
+  const [selectedHoldingIds, setSelectedHoldingIds] = useState<Set<string>>(new Set());
+  const [selectedPolicyIds, setSelectedPolicyIds] = useState<Set<string>>(new Set());
 
   if (!isOpen || !client) return null;
 
   const currentAge = calculateCurrentAge(client.dob);
 
   // Linked Financial Assets
-  const clientHoldings = client.pan ? holdings.filter(h => h.pan === client.pan) : [];
-  const clientSips = client.pan ? sips.filter(s => s.pan_number === client.pan) : [];
-  const clientPolicies = policies.filter(p =>
+  const clientHoldings = holdings.filter(h =>
+    (client.pan && h.pan === client.pan) ||
+    (h.investor_name && h.investor_name.toLowerCase() === client.investor_name.toLowerCase())
+  );
+  const clientSips = sips.filter(s =>
+    (client.pan && s.pan_number === client.pan) ||
+    (s.investor_name && s.investor_name.toLowerCase() === client.investor_name.toLowerCase())
+  );
+  const clientModernPolicies = insurancePolicies.filter(p =>
+    (p.primary_client_id && p.primary_client_id === client.client_id) ||
+    p.client_name.toLowerCase().includes(client.investor_name.toLowerCase()) ||
+    (p.proposer_name && p.proposer_name.toLowerCase().includes(client.investor_name.toLowerCase())) ||
+    (client.pan && p.proposer_pan === client.pan) ||
+    (p.members && p.members.some(m => m.client_id === client.client_id || m.member_name.toLowerCase() === client.investor_name.toLowerCase()))
+  );
+  const clientLegacyPolicies = policies.filter(p =>
     p.client_name.toLowerCase().includes(client.investor_name.toLowerCase()) ||
     (p.primary_member_name && p.primary_member_name.toLowerCase().includes(client.investor_name.toLowerCase()))
   );
@@ -447,9 +475,27 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
                   <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                     <TrendingUp className="w-3.5 h-3.5 text-amber-600" /> Mutual Fund Holdings ({clientHoldings.length})
                   </h4>
-                  <span className="text-xs font-mono font-bold text-slate-900">
-                    Total: ₹{totalHoldingAum.toLocaleString('en-IN')}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {selectedHoldingIds.size > 0 && onDeleteHolding && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (window.confirm(`Delete ${selectedHoldingIds.size} selected holding(s)? Client AUM will be recalculated automatically.`)) {
+                            for (const hid of Array.from(selectedHoldingIds)) {
+                              await onDeleteHolding(hid);
+                            }
+                            setSelectedHoldingIds(new Set());
+                          }
+                        }}
+                        className="px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 flex items-center gap-1 transition-all"
+                      >
+                        <Trash2 className="w-3 h-3" /> Delete Selected ({selectedHoldingIds.size})
+                      </button>
+                    )}
+                    <span className="text-xs font-mono font-bold text-slate-900">
+                      Total: ₹{totalHoldingAum.toLocaleString('en-IN')}
+                    </span>
+                  </div>
                 </div>
 
                 {clientHoldings.length === 0 ? (
@@ -458,18 +504,74 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {clientHoldings.map((h, i) => (
-                      <div key={i} className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3 text-xs shadow-xs">
-                        <div className="truncate">
-                          <p className="font-bold text-slate-900 truncate">{h.scheme_name}</p>
-                          <p className="text-[11px] text-slate-500 font-mono mt-0.5">Folio: {h.folio_number} • Units: {h.holding_units.toFixed(2)}</p>
+                    {clientHoldings.map((h, i) => {
+                      const holdingKey = h.id || `${h.pan}-${h.scheme_name}-${h.folio_number}-${i}`;
+                      const isChecked = selectedHoldingIds.has(holdingKey);
+                      return (
+                        <div key={holdingKey} className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3 text-xs shadow-xs hover:border-amber-200 transition-all">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {onDeleteHolding && (
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const next = new Set(selectedHoldingIds);
+                                  if (e.target.checked) next.add(holdingKey);
+                                  else next.delete(holdingKey);
+                                  setSelectedHoldingIds(next);
+                                }}
+                                className="w-3.5 h-3.5 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
+                              />
+                            )}
+                            <div className="truncate">
+                              <p className="font-bold text-slate-900 truncate">{h.scheme_name}</p>
+                              <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                                Folio: {h.folio_number || 'N/A'} • Units: {(h.holding_units || 0).toFixed(2)} • NAV: ₹{(h.latest_nav || h.avg_nav || 0).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <div className="text-right">
+                              <p className="font-bold text-slate-900 font-mono">₹{(h.current_value || 0).toLocaleString('en-IN')}</p>
+                              {h.xirr ? (
+                                <p className="text-[10px] text-emerald-600 font-semibold">{h.xirr.toFixed(1)}% XIRR</p>
+                              ) : (
+                                <p className="text-[10px] text-slate-400 font-mono">Cost: ₹{(h.invested_cost || 0).toLocaleString('en-IN')}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {onUpdateHolding && (
+                                <button
+                                  type="button"
+                                  title="Edit Holding"
+                                  onClick={() => {
+                                    setHoldingToEdit(h);
+                                    setIsEditHoldingModalOpen(true);
+                                  }}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 transition-colors"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              {onDeleteHolding && (
+                                <button
+                                  type="button"
+                                  title="Delete Holding"
+                                  onClick={async () => {
+                                    if (window.confirm(`Delete holding "${h.scheme_name}"? Client AUM will be auto-recalculated.`)) {
+                                      await onDeleteHolding(h.id || holdingKey);
+                                    }
+                                  }}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="font-bold text-slate-900 font-mono">₹{h.current_value.toLocaleString('en-IN')}</p>
-                          {h.xirr && <p className="text-[10px] text-emerald-600 font-semibold">{h.xirr.toFixed(1)}% XIRR</p>}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -507,19 +609,102 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
                 )}
               </div>
 
-              {/* Protection Policies */}
+              {/* Protection & Insurance Policies */}
               <div className="space-y-3 pt-4 border-t border-slate-100">
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-blue-600" /> Insurance & Protection Policies ({clientPolicies.length})
-                </h4>
-                {clientPolicies.length === 0 ? (
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-blue-600" /> Insurance & Protection Policies ({clientModernPolicies.length + clientLegacyPolicies.length})
+                  </h4>
+                  {selectedPolicyIds.size > 0 && onDeletePolicy && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`Delete ${selectedPolicyIds.size} selected policy(ies)?`)) {
+                          selectedPolicyIds.forEach(id => onDeletePolicy(id));
+                          setSelectedPolicyIds(new Set());
+                        }
+                      }}
+                      className="px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 flex items-center gap-1 transition-all"
+                    >
+                      <Trash2 className="w-3 h-3" /> Delete Selected ({selectedPolicyIds.size})
+                    </button>
+                  )}
+                </div>
+
+                {clientModernPolicies.length === 0 && clientLegacyPolicies.length === 0 ? (
                   <div className="p-6 text-center rounded-2xl border border-dashed border-slate-200 text-slate-400 text-xs">
                     No insurance policies recorded. Upload policies in Protection Vault.
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {clientPolicies.map((p, i) => (
-                      <div key={i} className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3 text-xs shadow-xs">
+                    {/* Modern Policies */}
+                    {clientModernPolicies.map((p) => {
+                      const isChecked = selectedPolicyIds.has(p.id);
+                      const gross = p.gross_premium || p.net_premium || 0;
+                      return (
+                        <div key={p.id} className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3 text-xs shadow-xs hover:border-amber-200 transition-all">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {onDeletePolicy && (
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const next = new Set(selectedPolicyIds);
+                                  if (e.target.checked) next.add(p.id);
+                                  else next.delete(p.id);
+                                  setSelectedPolicyIds(next);
+                                }}
+                                className="w-3.5 h-3.5 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
+                              />
+                            )}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-slate-900 truncate">{p.insurer_name}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-semibold uppercase">
+                                  {p.policy_type || p.vertical}
+                                </span>
+                                {(p.property_address || (p.vertical_data as any)?.risk_location_address || (p.vertical_data as any)?.property_address) && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium truncate max-w-[150px]" title={p.property_address || (p.vertical_data as any)?.risk_location_address || (p.vertical_data as any)?.property_address}>
+                                    {p.property_address || (p.vertical_data as any)?.risk_location_address || (p.vertical_data as any)?.property_address}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] font-mono text-slate-500 mt-0.5">
+                                #{p.policy_number} • {p.plan_name || p.product_name || 'Standard Plan'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <div className="text-right">
+                              <p className="font-extrabold text-amber-700 font-mono text-sm">
+                                ₹{gross.toLocaleString('en-IN')}
+                              </p>
+                              <p className="text-[10px] text-slate-400 font-mono">
+                                Cover: ₹{(p.sum_insured || 0).toLocaleString('en-IN')}
+                              </p>
+                            </div>
+                            {onDeletePolicy && (
+                              <button
+                                type="button"
+                                title="Delete Policy"
+                                onClick={() => {
+                                  if (window.confirm(`Delete policy ${p.policy_number}?`)) {
+                                    onDeletePolicy(p.id);
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Legacy Policies */}
+                    {clientLegacyPolicies.map((p, i) => (
+                      <div key={`leg-${i}`} className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3 text-xs shadow-xs">
                         <div>
                           <p className="font-bold text-slate-900">{p.insurer} — {p.policy_type}</p>
                           <p className="text-[11px] font-mono text-slate-500 mt-0.5">Policy #{p.policy_number}</p>
@@ -574,6 +759,23 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({
           )}
         </div>
       </div>
+
+      {/* Edit Holding Modal */}
+      {isEditHoldingModalOpen && holdingToEdit && onUpdateHolding && (
+        <EditHoldingModal
+          isOpen={isEditHoldingModalOpen}
+          holding={holdingToEdit}
+          onClose={() => {
+            setIsEditHoldingModalOpen(false);
+            setHoldingToEdit(null);
+          }}
+          onSave={async (updated) => {
+            await onUpdateHolding(updated);
+            setIsEditHoldingModalOpen(false);
+            setHoldingToEdit(null);
+          }}
+        />
+      )}
     </div>
   );
 };

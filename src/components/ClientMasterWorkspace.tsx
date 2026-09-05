@@ -55,6 +55,7 @@ import {
   getClientInsuranceSummary,
   getClientMfSummary
 } from '../lib/clientProductClassifier';
+import { isSamePersonOrEntity } from '../lib/entityResolution';
 
 interface ClientMasterWorkspaceProps {
   clients: ClientMasterRecord[];
@@ -76,6 +77,10 @@ interface ClientMasterWorkspaceProps {
   onSaveManualEdit: (updatedClient: ClientMasterRecord) => Promise<void>;
   onResolveReview: (matchId: string, resolution: 'MERGE' | 'CREATE_AS_NEW', targetClientId?: string) => Promise<void>;
   onDeleteClient?: (clientId: string) => Promise<void>;
+  onBulkDeleteClients?: (clientIds: string[]) => Promise<void>;
+  onUpdateHolding?: (updated: MfHolding) => Promise<void>;
+  onDeleteHolding?: (holdingId: string) => Promise<void>;
+  onDeletePolicy?: (policyId: string) => void;
   onNavigateToContentStudio?: (preset?: string) => void;
 }
 
@@ -93,6 +98,10 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
   onSaveManualEdit,
   onResolveReview,
   onDeleteClient,
+  onBulkDeleteClients,
+  onUpdateHolding,
+  onDeleteHolding,
+  onDeletePolicy,
   onNavigateToContentStudio
 }) => {
   // Navigation Sub-Tabs & Product Buckets
@@ -108,6 +117,11 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
   const [clientToDelete, setClientToDelete] = useState<ClientMasterRecord | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Multi-Select Bulk Client Deletion State
+  const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Search & Filter States
   const [searchTerm, setSearchTerm] = useState('');
@@ -313,39 +327,87 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
       });
     };
 
-    // 1. Primary Clients
+    // Track processed entities to eliminate duplicate celebrants (e.g. Swaminathan Arunachalam vs A Swaminathan)
+    const processedEntities: Array<{
+      name: string;
+      pan?: string | null;
+      mobile?: string | null;
+      dob?: string | null;
+      gender?: string | null;
+    }> = [];
+
+    // 1. Primary Clients (Deduplicated with Entity Resolution)
     clients.forEach(c => {
       if (c.dob || c.celebrated_dob_custom) {
-        processBirthday(
-          `cli_${c.client_id}`,
-          c.investor_name,
-          c.mapping_role === 'Head' ? 'Family Head' : c.relationship_to_head || 'Self',
-          c.mapping_role === 'Head' ? c.investor_name : 'Household Head',
-          c.dob,
-          c.celebrated_dob_custom,
-          c.mobile,
-          'CLIENT',
-          c.client_id
+        const isDuplicate = processedEntities.some(existing =>
+          isSamePersonOrEntity(existing, {
+            name: c.investor_name,
+            pan: c.pan,
+            mobile: c.mobile,
+            dob: c.dob,
+            gender: c.gender
+          }).isMatch
         );
+
+        if (!isDuplicate) {
+          processedEntities.push({
+            name: c.investor_name,
+            pan: c.pan,
+            mobile: c.mobile,
+            dob: c.dob,
+            gender: c.gender
+          });
+
+          processBirthday(
+            `cli_${c.client_id}`,
+            c.investor_name,
+            c.mapping_role === 'Head' ? 'Family Head' : c.relationship_to_head || 'Self',
+            c.mapping_role === 'Head' ? c.investor_name : 'Household Head',
+            c.dob,
+            c.celebrated_dob_custom,
+            c.mobile,
+            'CLIENT',
+            c.client_id
+          );
+        }
       }
     });
 
-    // 2. Covered Family Members from Insurance Policies
+    // 2. Covered Family Members from Insurance Policies (Deduplicated with Entity Resolution)
     insurancePolicies.forEach(pol => {
       if (pol.members && Array.isArray(pol.members)) {
         pol.members.forEach(m => {
-          if (m.dob && !list.some(item => item.name.toLowerCase() === m.member_name.toLowerCase())) {
-            processBirthday(
-              `mem_${m.id}`,
-              m.member_name,
-              m.relationship_to_head || (m.is_primary_insured ? 'Self' : 'Dependent'),
-              pol.client_name,
-              m.dob,
-              m.celebrated_dob_custom,
-              pol.proposer_mobile || '',
-              'INSURANCE_MEMBER',
-              m.client_id
+          if (m.dob) {
+            const isDuplicate = processedEntities.some(existing =>
+              isSamePersonOrEntity(existing, {
+                name: m.member_name,
+                dob: m.dob,
+                gender: m.gender,
+                mobile: pol.proposer_mobile,
+                pan: (m.is_primary_insured || m.relationship_to_head === 'Self') ? pol.proposer_pan : null
+              }).isMatch
             );
+
+            if (!isDuplicate) {
+              processedEntities.push({
+                name: m.member_name,
+                dob: m.dob,
+                mobile: pol.proposer_mobile,
+                gender: m.gender
+              });
+
+              processBirthday(
+                `mem_${m.id}`,
+                m.member_name,
+                m.relationship_to_head || (m.is_primary_insured ? 'Self' : 'Dependent'),
+                pol.client_name,
+                m.dob,
+                m.celebrated_dob_custom,
+                pol.proposer_mobile || '',
+                'INSURANCE_MEMBER',
+                m.client_id
+              );
+            }
           }
         });
       }
@@ -745,6 +807,62 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
             </div>
           </div>
 
+          {/* Multi-Select Floating Action Bar */}
+          {selectedClientIds.size > 0 && (
+            <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in duration-150 mb-3 bg-amber-50">
+              <div className="flex items-center gap-3">
+                <span className="font-extrabold text-amber-900">
+                  {selectedClientIds.size} {selectedClientIds.size === 1 ? 'Client' : 'Clients'} Selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allIds = new Set(filteredClients.map(c => c.client_id));
+                    setSelectedClientIds(allIds);
+                  }}
+                  className="text-amber-800 underline hover:text-amber-950 font-semibold cursor-pointer"
+                >
+                  Select all matching ({filteredClients.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const dummyIds = new Set<string>();
+                    filteredClients.forEach(c => {
+                      if (
+                        c.source_system === 'INSURANCE' ||
+                        c.client_id.includes('dummy') ||
+                        c.client_id.includes('syn') ||
+                        c.data_quality_flags?.includes('MISSING_PAN')
+                      ) {
+                        dummyIds.add(c.client_id);
+                      }
+                    });
+                    setSelectedClientIds(dummyIds);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 font-bold hover:bg-amber-200 transition-colors cursor-pointer"
+                >
+                  ⚡ Select Dummy / Synthetic Clients
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedClientIds(new Set())}
+                  className="text-slate-500 hover:text-slate-700 font-semibold cursor-pointer"
+                >
+                  Deselect All
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleteConfirmOpen(true)}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-2 shadow-xs cursor-pointer transition-all"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Selected ({selectedClientIds.size})
+              </button>
+            </div>
+          )}
+
           {/* Table Container */}
           {filteredClients.length === 0 ? (
             <div className="glass-panel p-12 md:p-16 text-center rounded-2xl border border-slate-200 space-y-3 bg-white">
@@ -762,6 +880,23 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
                 <table className="w-full text-left border-collapse text-xs md:text-sm">
                   <thead>
                     <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-[11px] uppercase tracking-wider font-bold">
+                      <th className="py-3 px-3 text-center w-10">
+                        <input
+                          type="checkbox"
+                          checked={paginatedClients.length > 0 && paginatedClients.every(c => selectedClientIds.has(c.client_id))}
+                          onChange={e => {
+                            const next = new Set(selectedClientIds);
+                            if (e.target.checked) {
+                              paginatedClients.forEach(c => next.add(c.client_id));
+                            } else {
+                              paginatedClients.forEach(c => next.delete(c.client_id));
+                            }
+                            setSelectedClientIds(next);
+                          }}
+                          className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-0 cursor-pointer"
+                          title="Select / Deselect all on current page"
+                        />
+                      </th>
                       <th className="py-3 px-4">Client Name & Role</th>
                       <th className="py-3 px-4">Contact Details</th>
 
@@ -793,7 +928,7 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
                           <th className="py-3 px-4 text-center">Policies</th>
                           <th className="py-3 px-4">Covered Verticals</th>
                           <th className="py-3 px-4 text-right">Total Sum Insured</th>
-                          <th className="py-3 px-4 text-right">Net Premium</th>
+                          <th className="py-3 px-4 text-right">Gross Premium</th>
                           <th className="py-3 px-4">Next Renewal</th>
                         </>
                       )}
@@ -814,7 +949,7 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
                           <th className="py-3 px-4">Products / Type</th>
                           <th className="py-3 px-4 text-center">Active Policies</th>
                           <th className="py-3 px-4 text-right">Sum Insured</th>
-                          <th className="py-3 px-4 text-right">Net Premium</th>
+                          <th className="py-3 px-4 text-right">Gross Premium</th>
                         </>
                       )}
 
@@ -842,6 +977,20 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
                             setIsDrawerOpen(true);
                           }}
                         >
+                          {/* Multi-Select Row Checkbox */}
+                          <td className="py-3 px-3 text-center" onClick={e => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selectedClientIds.has(client.client_id)}
+                              onChange={e => {
+                                const next = new Set(selectedClientIds);
+                                if (e.target.checked) next.add(client.client_id);
+                                else next.delete(client.client_id);
+                                setSelectedClientIds(next);
+                              }}
+                              className="w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-0 cursor-pointer"
+                            />
+                          </td>
                           {/* Client Name & Role */}
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2.5">
@@ -1514,6 +1663,7 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
           holdings={holdings}
           sips={sips}
           policies={policies}
+          insurancePolicies={insurancePolicies}
           changeLogs={changeLogs}
           onOpenEdit={(c) => {
             setEditingClient(c);
@@ -1523,6 +1673,9 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
           onSelectClient={(c) => {
             setSelectedClient(c);
           }}
+          onUpdateHolding={onUpdateHolding}
+          onDeleteHolding={onDeleteHolding}
+          onDeletePolicy={onDeletePolicy}
         />
       )}
 
@@ -1587,6 +1740,74 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
                 className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm cursor-pointer transition-colors"
               >
                 {isDeleting ? 'Deleting...' : 'Yes, Delete Client'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BULK DELETE CLIENTS CONFIRMATION MODAL */}
+      {isBulkDeleteConfirmOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white max-w-lg w-full rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-1.5">
+              <h3 className="text-lg font-black text-slate-900">Delete {selectedClientIds.size} Selected Clients?</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Are you sure you want to permanently delete these <strong>{selectedClientIds.size}</strong> clients from the Golden Client Master database?
+              </p>
+              <div className="max-h-48 overflow-y-auto p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs text-left my-2">
+                {clients.filter(c => selectedClientIds.has(c.client_id)).slice(0, 8).map(c => (
+                  <div key={c.client_id} className="flex items-center justify-between py-1 border-b border-slate-100 last:border-0">
+                    <span className="font-bold text-slate-900 truncate max-w-[200px]">{c.investor_name}</span>
+                    <span className="font-mono text-[11px] text-slate-500">{c.pan || c.mobile || 'No PAN'}</span>
+                  </div>
+                ))}
+                {selectedClientIds.size > 8 && (
+                  <p className="text-[11px] text-slate-400 text-center pt-1 italic">
+                    ...and {selectedClientIds.size - 8} more clients
+                  </p>
+                )}
+              </div>
+              <p className="text-[11px] text-rose-600 font-semibold">
+                ⚠️ All associated master records and client profiles will be permanently purged.
+              </p>
+            </div>
+            <div className="pt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleteConfirmOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isBulkDeleting}
+                onClick={async () => {
+                  try {
+                    setIsBulkDeleting(true);
+                    if (onBulkDeleteClients) {
+                      await onBulkDeleteClients(Array.from(selectedClientIds));
+                    } else if (onDeleteClient) {
+                      for (const id of selectedClientIds) {
+                        await onDeleteClient(id);
+                      }
+                    }
+                    setIsBulkDeleting(false);
+                    setIsBulkDeleteConfirmOpen(false);
+                    setSelectedClientIds(new Set());
+                  } catch (err: any) {
+                    setIsBulkDeleting(false);
+                    alert('Failed to delete selected clients: ' + err?.message);
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm cursor-pointer transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4 inline mr-1" />
+                {isBulkDeleting ? 'Deleting...' : `Yes, Delete (${selectedClientIds.size})`}
               </button>
             </div>
           </div>
