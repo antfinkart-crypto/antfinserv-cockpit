@@ -11,8 +11,10 @@ import {
   Settings,
   Users,
   LayoutDashboard,
-  GripVertical
+  GripVertical,
+  Lock
 } from 'lucide-react';
+import { useAuth } from './AuthGate';
 
 interface HeaderProps {
   isOnline: boolean;
@@ -39,6 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   todayCelebrationCount,
   reviewQueueCount = 0
 }) => {
+  const { lockCockpit } = useAuth();
   const ALL_TABS = [
     { id: 'cockpit', label: 'Cockpit', icon: LayoutDashboard },
     { id: 'content', label: 'Content Studio', icon: Newspaper, isFestive: true },
@@ -146,6 +149,15 @@ export const Header: React.FC<HeaderProps> = ({
             title="Settings"
           >
             <Settings className="w-4 h-4 text-slate-500" />
+          </button>
+
+          <button
+            onClick={lockCockpit}
+            className="p-2 md:py-2 md:px-3 rounded-xl bg-amber-50 hover:bg-rose-50 text-amber-900 hover:text-rose-700 border border-amber-300/80 hover:border-rose-300 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+            title="Lock Cockpit (Vault Gatekeeper)"
+          >
+            <Lock className="w-4 h-4 text-amber-700 hover:text-rose-600" />
+            <span className="hidden sm:inline text-xs font-bold text-amber-900 hover:text-rose-700">Lock</span>
           </button>
         </div>
       </div>
