@@ -56,6 +56,17 @@ export interface ClientMasterRecord {
   first_investment_date?: string;
   created_date?: string;
 
+  // Multi-Product Subscriptions & Tagging (e.g. Mutual Funds, Health, Motor, Life, Home Loan, Travel)
+  primary_products?: string[];
+  celebrated_dob_custom?: string; // Hindu / Indian calendar or custom celebrated date override
+  loan_details?: {
+    loan_type?: string;
+    lender?: string;
+    sanctioned_amount?: number;
+    emi?: number;
+    status?: string;
+  };
+
   // Internal Timestamps & Audit
   created_at: string;
   updated_at: string;

@@ -137,7 +137,8 @@ export const App: React.FC = () => {
 
       // 5. Insurance Policies & Family Synchronization
       let currentInsurance = await localDb.getAll<InsurancePolicy>('insurance_policies');
-      if (currentInsurance.length === 0) {
+      const hasClearedDemo = localStorage.getItem('antos_demo_policies_cleared') === 'true';
+      if (currentInsurance.length === 0 && !hasClearedDemo) {
         currentInsurance = SYNTHETIC_INSURANCE_POLICIES;
         await localDb.putMany('insurance_policies', currentInsurance);
       }
@@ -425,6 +426,43 @@ export const App: React.FC = () => {
     setClientReviewQueue(prev => prev.filter(q => q.id !== matchId));
   };
 
+  // Delete Insurance Policy Handler
+  const handleDeleteInsurancePolicy = async (policyId: string) => {
+    const target = insurancePolicies.find(p => p.id === policyId);
+    await localDb.delete('insurance_policies', policyId);
+    if (target?.policy_number) {
+      await localDb.delete('policies', target.policy_number);
+    }
+    setInsurancePolicies(prev => prev.filter(p => p.id !== policyId));
+    setPolicies(prev => prev.filter(p => p.id !== policyId && (!target?.policy_number || p.policy_number !== target.policy_number)));
+  };
+
+  // Clear Synthetic Demo Policies Handler
+  const handleClearDemoPolicies = async () => {
+    // Keep authentic policies (Niva Bupa, SBI General) and any user uploaded policies
+    const authenticNumbers = ['34154365202602', 'POPMCAR00102986126'];
+    const demoPolicies = insurancePolicies.filter(p => !authenticNumbers.includes(p.policy_number));
+    for (const demo of demoPolicies) {
+      await localDb.delete('insurance_policies', demo.id);
+      if (demo.policy_number) {
+        await localDb.delete('policies', demo.policy_number);
+      }
+    }
+    localStorage.setItem('antos_demo_policies_cleared', 'true');
+    const remaining = insurancePolicies.filter(p => authenticNumbers.includes(p.policy_number));
+    setInsurancePolicies(remaining);
+    setPolicies(prev => prev.filter(p => authenticNumbers.includes(p.policy_number)));
+    alert(`Demo policies cleared successfully! Kept ${remaining.length} authentic policy record(s).`);
+  };
+
+  // Delete Client Handler
+  const handleDeleteClient = async (clientId: string) => {
+    await localDb.delete('client_master', clientId);
+    await localDb.delete('clients', clientId);
+    setClientMaster(prev => prev.filter(c => c.client_id !== clientId));
+    setClients(prev => prev.filter(c => (c.client_id || (c as any).id) !== clientId));
+  };
+
   // Two-Way Sync Handler
   const handleSync = async () => {
     setIsSyncing(true);
@@ -488,12 +526,16 @@ export const App: React.FC = () => {
             holdings={holdings}
             sips={sips}
             policies={policies}
+            insurancePolicies={insurancePolicies}
+            leads={leads}
             importHistory={clientImportHistory}
             reviewQueue={clientReviewQueue}
             changeLogs={clientChangeLogs}
             onCommitImport={handleCommitClientImport}
             onSaveManualEdit={handleSaveClientManualEdit}
             onResolveReview={handleResolveReview}
+            onDeleteClient={handleDeleteClient}
+            onNavigateToContentStudio={() => setActiveTab('content')}
           />
         )}
 
@@ -526,6 +568,8 @@ export const App: React.FC = () => {
               await localDb.put('insurance_policies', updatedPolicy);
               setInsurancePolicies(prev => prev.map(p => p.id === updatedPolicy.id ? updatedPolicy : p));
             }}
+            onDeletePolicy={handleDeleteInsurancePolicy}
+            onClearDemoPolicies={handleClearDemoPolicies}
             onUpdateClients={async (newClients) => {
               setClientMaster(newClients);
               await localDb.putMany('client_master', newClients);
@@ -563,8 +607,21 @@ export const App: React.FC = () => {
         )}
 
         {activeTab === 'celebrations' && (
-          <CelebrationsTab
-            celebrations={celebrationAlerts}
+          <ClientMasterWorkspace
+            clients={clientMaster}
+            holdings={holdings}
+            sips={sips}
+            policies={policies}
+            insurancePolicies={insurancePolicies}
+            leads={leads}
+            importHistory={clientImportHistory}
+            reviewQueue={clientReviewQueue}
+            changeLogs={clientChangeLogs}
+            onCommitImport={handleCommitClientImport}
+            onSaveManualEdit={handleSaveClientManualEdit}
+            onResolveReview={handleResolveReview}
+            onDeleteClient={handleDeleteClient}
+            onNavigateToContentStudio={() => setActiveTab('content')}
           />
         )}
       </main>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Shield, Plus, Heart, Newspaper } from 'lucide-react';
+import { LayoutDashboard, Shield, Plus, ShieldCheck, Newspaper } from 'lucide-react';
 
 interface MobileBottomNavProps {
   activeTab: string;
@@ -66,18 +66,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         )}
       </button>
 
-      {/* Celebrations */}
+      {/* Protection Vault */}
       <button
-        onClick={() => setActiveTab('celebrations')}
+        onClick={() => setActiveTab('protection')}
         className={`relative flex flex-col items-center gap-1 py-1 px-2 rounded-lg transition-all cursor-pointer ${
-          activeTab === 'celebrations' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          activeTab === 'protection' ? 'text-amber-400 font-bold' : 'text-slate-400 hover:text-slate-200'
         }`}
       >
-        <Heart className="w-5 h-5" />
-        <span className="text-[10px]">B'days</span>
-        {todayCelebrationCount > 0 && (
-          <span className="absolute top-0 right-1 w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
-        )}
+        <ShieldCheck className="w-5 h-5 text-emerald-400" />
+        <span className="text-[10px]">Vault</span>
       </button>
     </div>
   );

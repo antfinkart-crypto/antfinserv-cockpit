@@ -50,17 +50,17 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'shield', label: 'SIP Shield', icon: Shield, badge: pendingShieldCount },
     { id: 'homeloan', label: 'Home Loans', icon: Home },
     { id: 'pipeline', label: 'New Leads / Prospects', icon: Users },
-    { id: 'protection', label: 'Protection Vault', icon: ShieldCheck },
-    { id: 'celebrations', label: 'Celebrations', icon: Heart, badge: todayCelebrationCount }
+    { id: 'protection', label: 'Protection Vault', icon: ShieldCheck }
   ];
 
   const [tabOrder, setTabOrder] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('antos_tab_order_v2');
+      const saved = localStorage.getItem('antos_tab_order_v3');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length === ALL_TABS.length) {
-          return parsed;
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(id => id !== 'celebrations' && ALL_TABS.some(t => t.id === id));
+          if (cleaned.length === ALL_TABS.length) return cleaned;
         }
       }
     } catch {}
