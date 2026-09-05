@@ -19,6 +19,8 @@ import { localDb } from './lib/indexedDB';
 import { getSupabase } from './lib/supabase';
 import { calculateShieldAlerts } from './lib/sipShieldEngine';
 import { getCelebrationAlerts } from './lib/celebrationEngine';
+import { syncPolicyMembersToClientMaster } from './lib/insuranceClientSync';
+import { SYNTHETIC_INSURANCE_POLICIES } from './data/syntheticInsuranceFixtures';
 import seedData from './data/seedData.json';
 import {
   Client,
@@ -30,7 +32,8 @@ import {
   ActiveSip,
   Lead,
   ProtectionAsset,
-  ImportBatch
+  ImportBatch,
+  InsurancePolicy
 } from './types';
 
 export const App: React.FC = () => {
@@ -50,6 +53,7 @@ export const App: React.FC = () => {
   const [batches, setBatches] = useState<ImportBatch[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [policies, setPolicies] = useState<ProtectionAsset[]>([]);
+  const [insurancePolicies, setInsurancePolicies] = useState<InsurancePolicy[]>([]);
   const [dispatchedKeys, setDispatchedKeys] = useState<Set<string>>(new Set());
 
   // Date Simulation for Testing Shields
@@ -131,6 +135,24 @@ export const App: React.FC = () => {
         await localDb.putMany('holdings', currentHoldings);
       }
 
+      // 5. Insurance Policies & Family Synchronization
+      let currentInsurance = await localDb.getAll<InsurancePolicy>('insurance_policies');
+      if (currentInsurance.length === 0) {
+        currentInsurance = SYNTHETIC_INSURANCE_POLICIES;
+        await localDb.putMany('insurance_policies', currentInsurance);
+      }
+
+      // Automatically synchronize health policy covered members (spouse, children, parents) into ClientMasterRecord
+      let updatedMaster = [...masterRecords];
+      for (const pol of currentInsurance) {
+        const syncRes = syncPolicyMembersToClientMaster(pol, updatedMaster);
+        if (syncRes.newMembersAdded.length > 0) {
+          updatedMaster = syncRes.updatedClients;
+          await localDb.putMany('client_master', syncRes.newMembersAdded);
+        }
+      }
+      masterRecords = updatedMaster;
+
       setClientMaster(masterRecords);
       setClientImportHistory(imph.sort((a, b) => new Date(b.imported_at).getTime() - new Date(a.imported_at).getTime()));
       setClientReviewQueue(revq.filter(q => q.status === 'PENDING'));
@@ -141,6 +163,7 @@ export const App: React.FC = () => {
       setBatches(b);
       setLeads(currentLeads);
       setPolicies(p);
+      setInsurancePolicies(currentInsurance);
     } catch (err) {
       console.error('Failed to load IndexedDB data', err);
     }
@@ -253,11 +276,63 @@ export const App: React.FC = () => {
     alert(`Successfully imported ${newSips.length} active SIP mandates from ${batch.file_name}!\nMonthly Active SIP Commitment: ₹${totalSipVal.toLocaleString('en-IN')}/mo`);
   };
 
-  // Save Policy to Vault
-  const handleSavePolicy = async (newPolicy: ProtectionAsset) => {
-    await localDb.put('policies', newPolicy);
-    setPolicies(prev => [newPolicy, ...prev.filter(p => p.policy_number !== newPolicy.policy_number)]);
-    alert(`Policy ${newPolicy.policy_number} for ${newPolicy.client_name} saved successfully!`);
+  // Save Policy to Vault & Synchronize Family Members
+  const handleSavePolicy = async (savedItem: ProtectionAsset | InsurancePolicy) => {
+    if ('vertical' in savedItem && 'members' in savedItem) {
+      const modernPolicy = savedItem as InsurancePolicy;
+      await localDb.put('insurance_policies', modernPolicy);
+
+      // Create legacy ProtectionAsset representation for backward compatibility
+      const legacyAsset: ProtectionAsset = {
+        id: modernPolicy.id,
+        policy_number: modernPolicy.policy_number,
+        client_name: modernPolicy.client_name,
+        insurer: modernPolicy.insurer_name,
+        policy_type:
+          modernPolicy.vertical === 'HEALTH'
+            ? (modernPolicy.members.length > 1 ? 'Health (Family Floater)' : 'Individual Health')
+            : modernPolicy.vertical === 'MOTOR'
+            ? 'Motor'
+            : 'Term',
+        net_premium: modernPolicy.net_premium,
+        sum_insured: modernPolicy.sum_insured,
+        expiry_date: modernPolicy.expiry_date,
+        days_to_expiry: Math.ceil((new Date(modernPolicy.expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+        primary_member_name: modernPolicy.proposer_name || modernPolicy.client_name,
+        primary_member_dob: modernPolicy.members.find(m => m.is_primary_insured)?.dob || null,
+        dep1_name: modernPolicy.members.filter(m => !m.is_primary_insured)[0]?.member_name,
+        dep1_relation: modernPolicy.members.filter(m => !m.is_primary_insured)[0]?.relationship_to_head,
+        dep1_dob: modernPolicy.members.filter(m => !m.is_primary_insured)[0]?.dob,
+        dep2_name: modernPolicy.members.filter(m => !m.is_primary_insured)[1]?.member_name,
+        dep2_relation: modernPolicy.members.filter(m => !m.is_primary_insured)[1]?.relationship_to_head,
+        dep2_dob: modernPolicy.members.filter(m => !m.is_primary_insured)[1]?.dob,
+        document_name: modernPolicy.source_document_name || 'Policy Document',
+        created_at: modernPolicy.created_at
+      };
+      await localDb.put('policies', legacyAsset);
+
+      setInsurancePolicies(prev => [modernPolicy, ...prev.filter(p => p.policy_number !== modernPolicy.policy_number)]);
+      setPolicies(prev => [legacyAsset, ...prev.filter(p => p.policy_number !== legacyAsset.policy_number)]);
+
+      // Auto-sync family members to Client Master for Birthday & Content Studio wishes
+      const syncRes = syncPolicyMembersToClientMaster(modernPolicy, clientMaster);
+      if (syncRes.newMembersAdded.length > 0) {
+        await localDb.putMany('client_master', syncRes.newMembersAdded);
+        setClientMaster(syncRes.updatedClients);
+      }
+
+      alert(
+        `Policy ${modernPolicy.policy_number} for ${modernPolicy.client_name} saved successfully!\n` +
+        (syncRes.newMembersAdded.length > 0
+          ? `${syncRes.newMembersAdded.length} Covered Family Member(s) synced to Client Master for Birthday Wishes & Content Studio.`
+          : 'All family members are already synchronized in Client Master.')
+      );
+    } else {
+      const legacy = savedItem as ProtectionAsset;
+      await localDb.put('policies', legacy);
+      setPolicies(prev => [legacy, ...prev.filter(p => p.policy_number !== legacy.policy_number)]);
+      alert(`Policy ${legacy.policy_number} for ${legacy.client_name} saved successfully!`);
+    }
   };
 
   // Client Master Handlers
@@ -444,7 +519,20 @@ export const App: React.FC = () => {
         {activeTab === 'protection' && (
           <ProtectionVault
             policies={policies}
+            insurancePolicies={insurancePolicies}
+            clients={clientMaster}
             onOpenUploadModal={() => setIsUploadPolicyOpen(true)}
+            onUpdatePolicy={async (updatedPolicy) => {
+              await localDb.put('insurance_policies', updatedPolicy);
+              setInsurancePolicies(prev => prev.map(p => p.id === updatedPolicy.id ? updatedPolicy : p));
+            }}
+            onUpdateClients={async (newClients) => {
+              setClientMaster(newClients);
+              await localDb.putMany('client_master', newClients);
+            }}
+            onNavigateToContentStudio={() => {
+              setActiveTab('content');
+            }}
           />
         )}
 

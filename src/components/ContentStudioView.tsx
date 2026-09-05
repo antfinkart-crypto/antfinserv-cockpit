@@ -42,7 +42,12 @@ const COMMUNITY_SIGNUP_URL = 'https://antfinserv.themfbox.com/signup';
  * All statutory disclaimers are permanently baked into the image footer itself,
  * so the WhatsApp message stays short, elegant, and delightful for the client.
  */
-export function formatCrispWhatsAppMessage(rawCaption: string, clientName?: string): string {
+export function formatCrispWhatsAppMessage(
+  rawCaption: string,
+  clientName?: string,
+  relationship?: string,
+  celebrantName?: string
+): string {
   let text = rawCaption.trim();
 
   // Strip any old bloated text or disclaimers if present
@@ -67,8 +72,14 @@ export function formatCrispWhatsAppMessage(rawCaption: string, clientName?: stri
 
   // Prepend client salutation
   if (clientName && clientName.trim()) {
-    if (!text.startsWith('Dear ')) {
-      text = `Dear ${clientName.trim()},\n\n${text}`;
+    if (relationship && relationship !== 'Self' && celebrantName && celebrantName !== clientName) {
+      if (!text.startsWith('Dear ')) {
+        text = `Dear ${clientName.trim()},\n\nHeartiest Birthday Greetings to your ${relationship.toLowerCase()}, ${celebrantName}! 🎂🎉\n\n${text}`;
+      }
+    } else {
+      if (!text.startsWith('Dear ')) {
+        text = `Dear ${clientName.trim()},\n\n${text}`;
+      }
     }
   }
 
@@ -378,6 +389,8 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
   const [activeModalPost, setActiveModalPost] = useState<ContentPost | null>(null);
   const [selectedClientName, setSelectedClientName] = useState<string>('');
   const [selectedClientPhone, setSelectedClientPhone] = useState<string>('');
+  const [selectedRelationship, setSelectedRelationship] = useState<string>('Self');
+  const [selectedCelebrantName, setSelectedCelebrantName] = useState<string>('');
   const [copiedPostId, setCopiedPostId] = useState<string | null>(null);
   const [pushStatusMessage, setPushStatusMessage] = useState<string | null>(null);
   const [isUploadingCustom, setIsUploadingCustom] = useState(false);
@@ -415,7 +428,12 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
   });
 
   const handleCopyCaption = (post: ContentPost) => {
-    const fullText = formatCrispWhatsAppMessage(post.defaultCaption, selectedClientName);
+    const fullText = formatCrispWhatsAppMessage(
+      post.defaultCaption,
+      selectedClientName,
+      selectedRelationship,
+      selectedCelebrantName
+    );
     navigator.clipboard.writeText(fullText);
     setCopiedPostId(post.id);
     setTimeout(() => setCopiedPostId(null), 2500);
@@ -453,7 +471,12 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
     handleDownloadPoster(post);
 
     // 2. Format crisp WhatsApp text without legal clutter
-    const fullText = formatCrispWhatsAppMessage(post.defaultCaption, selectedClientName);
+    const fullText = formatCrispWhatsAppMessage(
+      post.defaultCaption,
+      selectedClientName,
+      selectedRelationship,
+      selectedCelebrantName
+    );
 
     // 3. Open WhatsApp Web / App
     const url = generateWhatsAppUrl(selectedClientPhone || '', fullText);
@@ -826,16 +849,20 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                   </div>
 
                   <select
-                    value={selectedClientName ? `${selectedClientName}|${selectedClientPhone}` : ''}
+                    value={selectedClientName ? `${selectedClientName}|${selectedClientPhone}|${selectedRelationship}|${selectedCelebrantName}` : ''}
                     onChange={e => {
                       const val = e.target.value;
                       if (!val) {
                         setSelectedClientName('');
                         setSelectedClientPhone('');
+                        setSelectedRelationship('Self');
+                        setSelectedCelebrantName('');
                       } else {
-                        const [name, phone] = val.split('|');
+                        const [name, phone, rel, cel] = val.split('|');
                         setSelectedClientName(name || '');
                         setSelectedClientPhone(phone || '');
+                        setSelectedRelationship(rel || 'Self');
+                        setSelectedCelebrantName(cel || name || '');
                       }
                     }}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white font-medium focus:outline-none focus:border-amber-500"
@@ -844,19 +871,42 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                     {leads.length > 0 && (
                       <optgroup label="🎯 New Leads & Prospects Pipeline">
                         {leads.map(l => (
-                          <option key={l.id} value={`${l.owner_name}|${l.mobile}`}>
+                          <option key={l.id} value={`${l.owner_name}|${l.mobile}|Self|${l.owner_name}`}>
                             {l.owner_name} {l.firm_name ? `(${l.firm_name})` : ''} - {l.mobile}
                           </option>
                         ))}
                       </optgroup>
                     )}
-                    {clients.length > 0 && (
-                      <optgroup label="👥 Mutual Fund Client Master">
-                        {clients.map(cl => (
-                          <option key={cl.client_id} value={`${cl.investor_name}|${cl.mobile}`}>
-                            {cl.investor_name} ({cl.mobile || 'No Mobile'})
-                          </option>
-                        ))}
+                    {clients.filter(cl => !cl.relationship_to_head || cl.relationship_to_head === 'Self' || cl.mapping_role !== 'Member').length > 0 && (
+                      <optgroup label="👥 Primary Clients & Family Heads">
+                        {clients
+                          .filter(cl => !cl.relationship_to_head || cl.relationship_to_head === 'Self' || cl.mapping_role !== 'Member')
+                          .map(cl => (
+                            <option key={cl.client_id} value={`${cl.investor_name}|${cl.mobile || ''}|Self|${cl.investor_name}`}>
+                              {cl.investor_name} ({cl.mobile || 'No Mobile'})
+                            </option>
+                          ))}
+                      </optgroup>
+                    )}
+                    {clients.filter(cl => cl.relationship_to_head && cl.relationship_to_head !== 'Self').length > 0 && (
+                      <optgroup label="👨‍👩‍👧‍👦 Covered Family Dependents (Health & Life Insurance)">
+                        {clients
+                          .filter(cl => cl.relationship_to_head && cl.relationship_to_head !== 'Self')
+                          .map(cl => {
+                            const head = cl.family_head_id
+                              ? clients.find(h => h.client_id === cl.family_head_id || h.pan === cl.family_head_id)
+                              : null;
+                            const headName = head?.investor_name || 'Primary Head';
+                            const targetMobile = cl.mobile || head?.mobile || '';
+                            return (
+                              <option
+                                key={cl.client_id}
+                                value={`${headName}|${targetMobile}|${cl.relationship_to_head}|${cl.investor_name}`}
+                              >
+                                {cl.investor_name} ({cl.relationship_to_head} of {headName}) - {targetMobile || 'Family Phone'}
+                              </option>
+                            );
+                          })}
                       </optgroup>
                     )}
                   </select>
@@ -866,7 +916,11 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                       type="text"
                       placeholder="Or type client name..."
                       value={selectedClientName}
-                      onChange={e => setSelectedClientName(e.target.value)}
+                      onChange={e => {
+                        setSelectedClientName(e.target.value);
+                        setSelectedCelebrantName(e.target.value);
+                        setSelectedRelationship('Self');
+                      }}
                       className="px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-amber-500"
                     />
                     <input
@@ -890,7 +944,12 @@ export const ContentStudioView: React.FC<ContentStudioViewProps> = ({ clients = 
                     </span>
                   </div>
                   <div className="max-h-44 overflow-y-auto p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 whitespace-pre-wrap leading-relaxed font-sans select-all">
-                    {formatCrispWhatsAppMessage(activeModalPost.defaultCaption, selectedClientName)}
+                    {formatCrispWhatsAppMessage(
+                      activeModalPost.defaultCaption,
+                      selectedClientName,
+                      selectedRelationship,
+                      selectedCelebrantName
+                    )}
                   </div>
                 </div>
 

@@ -21,6 +21,9 @@ export interface ClientMasterRecord {
   source_user_id?: string; // e.g. MFbox USERID
   family_id?: string; // e.g. MFbox FAMILY ID (Household link, USERID ≠ FAMILY ID)
   mapping_role: MappingRole; // Head, Member, Individual
+  relationship_to_head?: string; // e.g. 'Spouse', 'Son', 'Daughter', 'Father', 'Mother'
+  family_head_id?: string; // client_id of the household family head
+  linked_health_policy_number?: string;
 
   // Core Identity
   pan: string | null; // Uppercase 10 chars, or null if missing (e.g. minors). NEVER dummy!
@@ -289,10 +292,12 @@ export interface CelebrationAlert {
   id: string;
   client_name: string;
   celebrant_name: string;
-  relationship: 'Self' | 'Spouse' | 'Child' | 'Parent' | 'Dependent';
+  relationship: 'Self' | 'Spouse' | 'Child' | 'Son' | 'Daughter' | 'Father' | 'Mother' | 'Parent' | 'Dependent' | string;
   dob: string;
   mobile: string;
   age?: number;
   is_today: boolean;
   days_until: number;
 }
+
+export * from './insurance';

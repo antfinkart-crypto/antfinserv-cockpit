@@ -38,7 +38,7 @@ export function parseDateOfBirth(dobStr: string | null | undefined): { day: numb
 
 export function getCelebrationAlerts(
   clients: (Client | ClientMasterRecord)[],
-  policies: ProtectionAsset[],
+  policies: (ProtectionAsset | any)[] = [],
   baseDate: Date = new Date()
 ): CelebrationAlert[] {
   const alerts: CelebrationAlert[] = [];
@@ -55,7 +55,7 @@ export function getCelebrationAlerts(
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // 1. Scan Clients Master (Each person evaluated once)
+  // 1. Scan Clients Master (Evaluates both Primary Investors and Covered Family Members)
   clients.forEach(c => {
     if (!c.dob) return;
     const parsed = parseDateOfBirth(c.dob);
@@ -64,16 +64,34 @@ export function getCelebrationAlerts(
     const daysUntil = getDaysUntil(parsed.day, parsed.month);
     if (daysUntil <= 30) {
       const age = parsed.year ? baseDate.getFullYear() - parsed.year : undefined;
-      const clientName = ('investor_name' in c && c.investor_name) ? c.investor_name : (c as Client).full_name;
-      const keyId = ('client_id' in c && c.client_id) ? c.client_id : ((c as any).pan || (c as any).pan_number || clientName);
+      const celebrantName = ('investor_name' in c && c.investor_name) ? c.investor_name : (c as Client).full_name;
+      const keyId = ('client_id' in c && c.client_id) ? c.client_id : ((c as any).pan || (c as any).pan_number || celebrantName);
+
+      let relationship = 'Self';
+      let parentClientName = celebrantName;
+      let contactMobile = c.mobile || '';
+
+      // Check for family relationship & head client linking
+      if ('relationship_to_head' in c && c.relationship_to_head && c.relationship_to_head !== 'Self') {
+        relationship = c.relationship_to_head;
+        const headClient = c.family_head_id
+          ? clients.find(h => ('client_id' in h && h.client_id === c.family_head_id) || ('pan' in h && h.pan === c.family_head_id))
+          : null;
+        if (headClient) {
+          parentClientName = ('investor_name' in headClient && headClient.investor_name) ? headClient.investor_name : (headClient as any).full_name;
+          if (!contactMobile && headClient.mobile) {
+            contactMobile = headClient.mobile;
+          }
+        }
+      }
 
       alerts.push({
         id: `client-${keyId}`,
-        client_name: clientName,
-        celebrant_name: clientName,
-        relationship: 'Self',
+        client_name: parentClientName,
+        celebrant_name: celebrantName,
+        relationship: relationship as any,
         dob: c.dob,
-        mobile: c.mobile,
+        mobile: contactMobile,
         is_today: daysUntil === 0,
         days_until: daysUntil,
         age
@@ -81,8 +99,34 @@ export function getCelebrationAlerts(
     }
   });
 
-  // 2. Scan Protection Vault Policies for Primary and Dependents
+  // 2. Scan Insurance Policies (both modern InsurancePolicy members and legacy ProtectionAsset fields)
   policies.forEach(p => {
+    // If modern InsurancePolicy with members array
+    if (Array.isArray(p.members) && p.members.length > 0) {
+      p.members.forEach((m: any, idx: number) => {
+        if (!m.dob) return;
+        const parsed = parseDateOfBirth(m.dob);
+        if (!parsed) return;
+        const daysUntil = getDaysUntil(parsed.day, parsed.month);
+        if (daysUntil <= 30) {
+          const age = parsed.year ? baseDate.getFullYear() - parsed.year : undefined;
+          alerts.push({
+            id: `pol-${p.id}-mem-${idx}-${m.name}`,
+            client_name: p.client_name,
+            celebrant_name: m.name,
+            relationship: m.relationship || (m.is_primary ? 'Self' : 'Dependent'),
+            dob: m.dob,
+            mobile: m.mobile || p.mobile || '',
+            is_today: daysUntil === 0,
+            days_until: daysUntil,
+            age
+          });
+        }
+      });
+      return;
+    }
+
+    // Legacy ProtectionAsset schema fallback
     // Primary Member
     if (p.primary_member_dob) {
       const parsed = parseDateOfBirth(p.primary_member_dob);
