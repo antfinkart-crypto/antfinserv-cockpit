@@ -32,7 +32,8 @@ import {
   Award,
   ArrowRight,
   Layers,
-  Trash2
+  Trash2,
+  Edit3
 } from 'lucide-react';
 import { ProtectionAsset, ClientMasterRecord } from '../types';
 import {
@@ -46,6 +47,7 @@ import {
 import { generateWhatsAppUrl } from '../lib/whatsAppRouter';
 import { SYNTHETIC_INSURANCE_POLICIES } from '../data/syntheticInsuranceFixtures';
 import { syncPolicyMembersToClientMaster } from '../lib/insuranceClientSync';
+import { EditPolicyModal } from './EditPolicyModal';
 
 interface ProtectionVaultProps {
   policies?: ProtectionAsset[];
@@ -91,6 +93,21 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState<boolean>(false);
   const [policyToDelete, setPolicyToDelete] = useState<InsurancePolicy | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
+  const [policyToEdit, setPolicyToEdit] = useState<InsurancePolicy | null>(null);
+  const [isEditPolicyModalOpen, setIsEditPolicyModalOpen] = useState<boolean>(false);
+
+  const handleSaveEditedPolicy = async (updatedPolicy: InsurancePolicy) => {
+    if (onUpdatePolicy) {
+      await onUpdatePolicy(updatedPolicy);
+    }
+    if (selectedPolicy && selectedPolicy.id === updatedPolicy.id) {
+      setSelectedPolicy(updatedPolicy);
+    }
+    setPolicyToEdit(null);
+    setIsEditPolicyModalOpen(false);
+    setSyncFeedback(`Policy ${updatedPolicy.policy_number} updated successfully!`);
+    setTimeout(() => setSyncFeedback(null), 4000);
+  };
 
   // Claims state (Pre-seeded with institutional settlement records)
   const [claims, setClaims] = useState<PolicyClaim[]>([
@@ -805,7 +822,19 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
                           <Calendar className="w-3.5 h-3.5 text-slate-400" />
                           Expires: <strong className="text-slate-700">{pol.expiry_date}</strong>
                         </span>
-                        {onDeletePolicy && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPolicyToEdit(pol);
+                              setIsEditPolicyModalOpen(true);
+                            }}
+                            className="p-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                            title="Edit Policy"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          {onDeletePolicy && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1207,9 +1236,26 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
                   {selectedPolicy.vertical}
                 </span>
                 <h3 className="font-black text-lg text-slate-900 mt-1">{selectedPolicy.client_name}</h3>
+                {selectedPolicy.proposer_name && selectedPolicy.proposer_name !== selectedPolicy.client_name && (
+                  <p className="text-xs text-indigo-700 font-semibold mt-0.5">
+                    Proposer: <span className="font-bold">{selectedPolicy.proposer_name}</span>
+                  </p>
+                )}
                 <p className="text-xs text-slate-500 font-mono">{selectedPolicy.policy_number}</p>
               </div>
               <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPolicyToEdit(selectedPolicy);
+                    setIsEditPolicyModalOpen(true);
+                  }}
+                  className="p-2 rounded-xl text-blue-600 hover:text-blue-800 hover:bg-blue-50 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Edit Policy Details"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Edit</span>
+                </button>
                 {onDeletePolicy && (
                   <button
                     type="button"
@@ -1327,6 +1373,18 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
                   Delete
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => {
+                  setPolicyToEdit(selectedPolicy);
+                  setIsEditPolicyModalOpen(true);
+                }}
+                className="py-2.5 px-4 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer border border-blue-200"
+                title="Edit Policy Details"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                Edit Details
+              </button>
               <button
                 onClick={() => setSelectedPolicy(null)}
                 className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"

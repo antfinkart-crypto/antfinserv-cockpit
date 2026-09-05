@@ -567,6 +567,13 @@ export const App: React.FC = () => {
             onUpdatePolicy={async (updatedPolicy) => {
               await localDb.put('insurance_policies', updatedPolicy);
               setInsurancePolicies(prev => prev.map(p => p.id === updatedPolicy.id ? updatedPolicy : p));
+              if (updatedPolicy.members && updatedPolicy.members.length > 0) {
+                const syncRes = syncPolicyMembersToClientMaster(updatedPolicy, clientMaster);
+                if (syncRes.updatedClients.length > 0) {
+                  setClientMaster(syncRes.updatedClients);
+                  await localDb.putMany('client_master', syncRes.updatedClients);
+                }
+              }
             }}
             onDeletePolicy={handleDeleteInsurancePolicy}
             onClearDemoPolicies={handleClearDemoPolicies}

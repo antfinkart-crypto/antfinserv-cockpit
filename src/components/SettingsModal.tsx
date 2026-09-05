@@ -47,9 +47,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newPin, setNewPin] = useState('');
   const [autoLockMins, setAutoLockMinsState] = useState<number>(() => getAutoLockMinutes());
   const [securityMsg, setSecurityMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [copiedEmk, setCopiedEmk] = useState(false);
-
-  const EMK_KEY = 'ANTOS-RECOVERY-ARN94204-VAULT';
 
   if (!isOpen) return null;
 
@@ -99,12 +96,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setAutoLockMinsState(mins);
     setAutoLockMinutes(mins);
     setSecurityMsg({ type: 'success', text: `Auto-lock interval set to ${mins > 0 ? `${mins} minutes` : 'Disabled'}.` });
-  };
-
-  const handleCopyEmk = () => {
-    navigator.clipboard.writeText(EMK_KEY);
-    setCopiedEmk(true);
-    setTimeout(() => setCopiedEmk(false), 2000);
   };
 
   return (
@@ -271,24 +262,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </button>
             </form>
 
-            {/* Emergency Recovery Key Box */}
-            <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-amber-300">Master Emergency Recovery Key (EMK)</span>
-                <button
-                  type="button"
-                  onClick={handleCopyEmk}
-                  className="flex items-center gap-1 text-[11px] font-bold text-amber-400 hover:text-amber-300 transition-colors"
-                >
-                  {copiedEmk ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedEmk ? 'Copied!' : 'Copy Key'}</span>
-                </button>
-              </div>
-              <div className="p-2.5 rounded-xl bg-slate-950 font-mono text-xs text-amber-400/90 border border-slate-800 break-all select-all">
-                {EMK_KEY}
-              </div>
-              <p className="text-[10px] text-slate-400">
-                Keep this key safe. You can use it on the Lock Screen to bypass any lockout and reset your credentials instantly.
+            {/* Security Notice */}
+            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
+              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <Shield className="w-3.5 h-3.5 text-amber-400" />
+                Two-Tier Institutional Security Active
+              </span>
+              <p className="text-[11px] text-slate-400">
+                Your credentials and encrypted vault are safeguarded behind PBKDF2 hashed storage. Use your offline emergency master key if device lockout recovery is required.
               </p>
             </div>
           </div>
