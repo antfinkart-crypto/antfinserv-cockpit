@@ -381,7 +381,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlockSuccess }) => {
             </div>
 
             <p className="text-center text-[11px] text-slate-500">
-              Default PIN: <span className="text-amber-400 font-mono font-semibold">942040</span> (or physical numpad)
+              Enter 6-digit numeric PIN to unlock
             </p>
           </div>
         )}
@@ -411,9 +411,6 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlockSuccess }) => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">
-                Default: <span className="text-amber-400 font-mono font-semibold">AntFinServ@2026</span>
-              </p>
             </div>
 
             {/* 24h Trust Checkbox */}
@@ -520,13 +517,10 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlockSuccess }) => {
                     type="text"
                     value={recoveryKey}
                     onChange={e => setRecoveryKey(e.target.value)}
-                    placeholder="e.g. ANTOS-RECOVERY-ARN94204-VAULT"
+                    placeholder="Enter confidential Emergency Recovery Key..."
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:outline-hidden focus:border-amber-500"
                     required
                   />
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    Default Master Key: <code className="text-amber-400 font-mono">ANTOS-RECOVERY-ARN94204-VAULT</code>
-                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
