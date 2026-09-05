@@ -62,6 +62,7 @@ export interface PolicyMember {
   member_name: string;
   relationship_to_head: MemberRelationship;
   dob: string; // Canonical YYYY-MM-DD for Celebrations & Birthday wishes
+  celebrated_dob_custom?: string; // Hindu / Indian calendar or custom celebrated date
   gender?: 'Male' | 'Female' | 'Other';
   sum_insured_individual?: number; // For floaters with individual caps
   ped_declared?: string[]; // Pre-existing conditions declared
@@ -159,6 +160,8 @@ export interface MotorInsuranceData {
   financier_hypothecation?: string;
   engine_number_masked?: string;
   chassis_number_masked?: string;
+  seating_capacity?: number;
+  rto_location?: string;
 }
 
 export interface LifeInsuranceData {

@@ -1,5 +1,5 @@
-// AntFinserv Cockpit Service Worker - Offline-First Engine (v2 Security Hardened)
-const CACHE_NAME = 'antfinserv-cockpit-v2-security-fix';
+// AntFinserv Cockpit Service Worker - Offline-First Engine (v5 Insurtech Update)
+const CACHE_NAME = 'antfinserv-cockpit-v5-insurtech';
 const STATIC_ASSETS = [
   './',
   './index.html',
