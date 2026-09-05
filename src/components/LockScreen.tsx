@@ -13,7 +13,8 @@ import {
   Sparkles,
   ArrowRight,
   ShieldAlert,
-  Delete
+  Delete,
+  Mail
 } from 'lucide-react';
 import {
   verifyPin,
@@ -53,6 +54,20 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlockSuccess }) => {
   const [newPin, setNewPin] = useState<string>('');
   const [recoveryError, setRecoveryError] = useState<string>('');
   const [recoverySuccess, setRecoverySuccess] = useState<boolean>(false);
+  const [emailDispatched, setEmailDispatched] = useState<boolean>(false);
+
+  const handleSendEmailKey = () => {
+    setEmailDispatched(true);
+    const subject = encodeURIComponent('AntFinServ Cockpit - Emergency Master Recovery Key');
+    const body = encodeURIComponent(
+      'Dear Principal Advisor,\n\n' +
+      'Here is your confidential Emergency Master Recovery Key to reset Cockpit access:\n\n' +
+      'ANTOS-RECOVERY-ARN94204-VAULT\n\n' +
+      'Paste this key into the Emergency Recovery box on the Cockpit screen to reset your Master Password and 6-Digit PIN.\n\n' +
+      '— AntFinServ OS Security Vault'
+    );
+    window.open(`mailto:ranasahib@antfinserv.com?subject=${subject}&body=${body}`, '_blank');
+  };
 
   // Poll lockout timer every second if locked
   useEffect(() => {
@@ -510,17 +525,32 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlockSuccess }) => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Emergency Master Recovery Key (EMK)
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Emergency Master Recovery Key (EMK)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleSendEmailKey}
+                      className="text-[11px] text-amber-400 hover:text-amber-300 underline font-semibold flex items-center gap-1 transition-colors"
+                    >
+                      <Mail className="w-3 h-3" />
+                      <span>Email Key to Advisor</span>
+                    </button>
+                  </div>
                   <input
-                    type="text"
+                    type="password"
                     value={recoveryKey}
                     onChange={e => setRecoveryKey(e.target.value)}
-                    placeholder="Enter confidential Emergency Recovery Key..."
+                    placeholder="Paste confidential Recovery Key from email..."
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:outline-hidden focus:border-amber-500"
                     required
                   />
+                  {emailDispatched && (
+                    <p className="text-[11px] text-emerald-400 font-medium mt-1">
+                      ✓ Emergency key sent to advisor inbox (ranasahib@antfinserv.com).
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
