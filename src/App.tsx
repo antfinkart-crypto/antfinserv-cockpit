@@ -43,19 +43,19 @@ export const App: React.FC = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Core CRM Datasets
-  const [clients, setClients] = useState<Client[]>([]);
-  const [clientMaster, setClientMaster] = useState<ClientMasterRecord[]>([]);
+  // Core CRM Datasets initialized directly from authoritative seed
+  const [clients, setClients] = useState<Client[]>(() => (seedData.clients || []) as Client[]);
+  const [clientMaster, setClientMaster] = useState<ClientMasterRecord[]>(() => (seedData.client_master || []) as ClientMasterRecord[]);
   const [clientImportHistory, setClientImportHistory] = useState<ClientImportBatch[]>([]);
   const [clientReviewQueue, setClientReviewQueue] = useState<AmbiguousClientMatch[]>([]);
   const [clientChangeLogs, setClientChangeLogs] = useState<ClientChangeLog[]>([]);
 
-  const [holdings, setHoldings] = useState<MfHolding[]>([]);
-  const [sips, setSips] = useState<ActiveSip[]>([]);
+  const [holdings, setHoldings] = useState<MfHolding[]>(() => (seedData.holdings || []) as MfHolding[]);
+  const [sips, setSips] = useState<ActiveSip[]>(() => (seedData.sips || []) as ActiveSip[]);
   const [batches, setBatches] = useState<ImportBatch[]>([]);
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [policies, setPolicies] = useState<ProtectionAsset[]>([]);
-  const [insurancePolicies, setInsurancePolicies] = useState<InsurancePolicy[]>([]);
+  const [leads, setLeads] = useState<Lead[]>(() => (seedData.leads || []) as Lead[]);
+  const [policies, setPolicies] = useState<ProtectionAsset[]>(() => ((seedData as any).policies || []) as ProtectionAsset[]);
+  const [insurancePolicies, setInsurancePolicies] = useState<InsurancePolicy[]>(() => SYNTHETIC_INSURANCE_POLICIES);
   const [insurers, setInsurers] = useState<InsurerRecord[]>(DEFAULT_INSURERS);
   const [dispatchedKeys, setDispatchedKeys] = useState<Set<string>>(new Set());
 
@@ -82,58 +82,79 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Initialize Data from IndexedDB
+  // Initialize Data from IndexedDB with full resilience
   const loadData = async () => {
     try {
       await localDb.init();
-      const [c, cm, imph, revq, logs, h, s, b, l, p] = await Promise.all([
-        localDb.getAll<Client>('clients'),
-        localDb.getAll<ClientMasterRecord>('client_master'),
-        localDb.getAll<ClientImportBatch>('client_import_history'),
-        localDb.getAll<AmbiguousClientMatch>('client_review_queue'),
-        localDb.getAll<ClientChangeLog>('client_audit_history'),
-        localDb.getAll<MfHolding>('holdings'),
-        localDb.getAll<ActiveSip>('sips'),
-        localDb.getAll<ImportBatch>('batches'),
-        localDb.getAll<Lead>('leads'),
-        localDb.getAll<ProtectionAsset>('policies'),
-      ]);
 
-      // 1. Authoritative Client Master with exact mobile mappings (112 clients)
+      // 1. Authoritative Client Master
+      let cm: ClientMasterRecord[] = [];
+      try {
+        cm = await localDb.getAll<ClientMasterRecord>('client_master');
+      } catch (e) {
+        console.warn('Could not read client_master from IDB', e);
+      }
+
       let masterRecords = cm;
       if (masterRecords.length < 100) {
         if (seedData.client_master && seedData.client_master.length > 0) {
           masterRecords = seedData.client_master as ClientMasterRecord[];
-          await localDb.clear('client_master');
-          await localDb.putMany('client_master', masterRecords);
+          try {
+            await localDb.clear('client_master');
+            await localDb.putMany('client_master', masterRecords);
+          } catch {}
         }
+      }
+
+      let c: Client[] = [];
+      try {
+        c = await localDb.getAll<Client>('clients');
+      } catch (e) {
+        console.warn('Could not read clients from IDB', e);
       }
 
       let clientRecords = c;
       if (clientRecords.length < 100 && seedData.clients && seedData.clients.length > 0) {
         clientRecords = seedData.clients as Client[];
-        await localDb.clear('clients');
-        await localDb.putMany('clients', clientRecords);
+        try {
+          await localDb.clear('clients');
+          await localDb.putMany('clients', clientRecords);
+        } catch {}
       }
       setClients(clientRecords);
 
-      // Load verified Insurer Registry
-      let savedInsurers = await localDb.getAll<InsurerRecord>('insurer_registry');
-      if (!savedInsurers || savedInsurers.length === 0) {
-        savedInsurers = DEFAULT_INSURERS;
-        await localDb.putMany('insurer_registry', savedInsurers);
+      // 2. Verified Insurer Registry
+      let savedInsurers = DEFAULT_INSURERS;
+      try {
+        const fromDb = await localDb.getAll<InsurerRecord>('insurer_registry');
+        if (fromDb && fromDb.length > 0) {
+          savedInsurers = fromDb;
+        } else {
+          const fromLs = localStorage.getItem('antfinserv_insurer_registry');
+          if (fromLs) {
+            savedInsurers = JSON.parse(fromLs);
+          } else {
+            await localDb.putMany('insurer_registry', DEFAULT_INSURERS);
+          }
+        }
+      } catch (e) {
+        console.warn('Using default insurers', e);
       }
       setInsurers(savedInsurers);
 
-      // 2. Clean dummy leads
+      // 3. Clean dummy leads & load leads
       const dummyIds = ['lead_rai_sahib', 'lead_arpit_arora'];
       for (const did of dummyIds) {
-        await localDb.delete('leads', did);
+        try { await localDb.delete('leads', did); } catch {}
       }
+      let l: Lead[] = [];
+      try {
+        l = await localDb.getAll<Lead>('leads');
+      } catch {}
       let currentLeads = l.filter(lead => !dummyIds.includes(lead.id));
       if (currentLeads.length === 0 && seedData.leads && seedData.leads.length > 0) {
         currentLeads = seedData.leads as Lead[];
-        await localDb.putMany('leads', currentLeads);
+        try { await localDb.putMany('leads', currentLeads); } catch {}
       }
       const hasAnhad = currentLeads.some(lead => lead.owner_name?.toLowerCase().includes('anhad'));
       if (!hasAnhad) {
@@ -147,44 +168,59 @@ export const App: React.FC = () => {
           notes: 'Synchronized from Mobile App. Mutual fund SIP & wealth portfolio review.',
           created_at: new Date().toISOString()
         };
-        await localDb.put('leads', anhadLead);
+        try { await localDb.put('leads', anhadLead); } catch {}
         currentLeads = [anhadLead, ...currentLeads];
       }
       setLeads(currentLeads);
 
-      // 3. Active SIPs (156 active mandates)
+      // 4. Active SIPs (156 active mandates)
+      let s: ActiveSip[] = [];
+      try {
+        s = await localDb.getAll<ActiveSip>('sips');
+      } catch {}
       let currentSips = s;
       if (currentSips.length < 156 && seedData.sips && seedData.sips.length > 0) {
         currentSips = seedData.sips as ActiveSip[];
-        await localDb.clear('sips');
-        await localDb.putMany('sips', currentSips);
+        try {
+          await localDb.clear('sips');
+          await localDb.putMany('sips', currentSips);
+        } catch {}
       }
+      setSips(currentSips);
 
-      // 4. Authoritative Holdings (323 folio holdings totaling ₹7.91 Cr AUM)
+      // 5. Authoritative Holdings (323 folio holdings totaling ₹7.91 Cr AUM)
+      let h: MfHolding[] = [];
+      try {
+        h = await localDb.getAll<MfHolding>('holdings');
+      } catch {}
       let currentHoldings = h;
       if (currentHoldings.length < 320 && seedData.holdings && seedData.holdings.length > 0) {
         currentHoldings = seedData.holdings as MfHolding[];
-        await localDb.clear('holdings');
-        await localDb.putMany('holdings', currentHoldings);
+        try {
+          await localDb.clear('holdings');
+          await localDb.putMany('holdings', currentHoldings);
+        } catch {}
       }
+      setHoldings(currentHoldings);
 
-      // 5. Insurance Policies & Family Synchronization
-      let currentInsurance = await localDb.getAll<InsurancePolicy>('insurance_policies');
+      // 6. Insurance Policies & Family Synchronization
+      let currentInsurance: InsurancePolicy[] = [];
+      try {
+        currentInsurance = await localDb.getAll<InsurancePolicy>('insurance_policies');
+      } catch {}
       const hasClearedDemo = localStorage.getItem('antos_demo_policies_cleared') === 'true';
       if (currentInsurance.length === 0 && !hasClearedDemo) {
         currentInsurance = SYNTHETIC_INSURANCE_POLICIES;
-        await localDb.putMany('insurance_policies', currentInsurance);
+        try { await localDb.putMany('insurance_policies', currentInsurance); } catch {}
       } else if (!hasClearedDemo) {
-        // Automatically merge any newly added authoritative policies (e.g. Car SAOD 1+3, 2-Wheeler, Home Mumbai, Home Bengaluru)
         const existingIds = new Set(currentInsurance.map(p => p.id));
         const missing = SYNTHETIC_INSURANCE_POLICIES.filter(p => !existingIds.has(p.id));
         if (missing.length > 0) {
           currentInsurance = [...currentInsurance, ...missing];
-          await localDb.putMany('insurance_policies', missing);
+          try { await localDb.putMany('insurance_policies', missing); } catch {}
         }
       }
 
-      // Enforce zero retail GST on Health & Life, and ensure rupee NCB amount is populated
       currentInsurance = currentInsurance.map(p => {
         let modified = false;
         let updated = { ...p };
@@ -201,10 +237,11 @@ export const App: React.FC = () => {
           modified = true;
         }
         if (modified) {
-          localDb.put('insurance_policies', updated);
+          try { localDb.put('insurance_policies', updated); } catch {}
         }
         return updated;
       });
+      setInsurancePolicies(currentInsurance);
 
       // Automatically synchronize health policy covered members (spouse, children, parents) into ClientMasterRecord
       let updatedMaster = [...masterRecords];
@@ -231,30 +268,45 @@ export const App: React.FC = () => {
           updated_at: new Date().toISOString()
         };
         updatedMaster = [swamiClient, ...updatedMaster];
-        await localDb.put('client_master', swamiClient);
+        try { await localDb.put('client_master', swamiClient); } catch {}
       }
 
       for (const pol of currentInsurance) {
         const syncRes = syncPolicyMembersToClientMaster(pol, updatedMaster);
         if (syncRes.newMembersAdded.length > 0) {
           updatedMaster = syncRes.updatedClients;
-          await localDb.putMany('client_master', syncRes.newMembersAdded);
+          try { await localDb.putMany('client_master', syncRes.newMembersAdded); } catch {}
         }
       }
 
       masterRecords = updatedMaster;
-
       setClientMaster(masterRecords);
-      setClientImportHistory(imph.sort((a, b) => new Date(b.imported_at).getTime() - new Date(a.imported_at).getTime()));
-      setClientReviewQueue(revq.filter(q => q.status === 'PENDING'));
-      setClientChangeLogs(logs.sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()));
 
-      setHoldings(currentHoldings);
-      setSips(currentSips);
-      setBatches(b);
-      setLeads(currentLeads);
-      setPolicies(p);
-      setInsurancePolicies(currentInsurance);
+      try {
+        const imph = await localDb.getAll<ClientImportBatch>('client_import_history');
+        setClientImportHistory(imph.sort((a, b) => new Date(b.imported_at).getTime() - new Date(a.imported_at).getTime()));
+      } catch {}
+
+      try {
+        const revq = await localDb.getAll<AmbiguousClientMatch>('client_review_queue');
+        setClientReviewQueue(revq.filter(q => q.status === 'PENDING'));
+      } catch {}
+
+      try {
+        const logs = await localDb.getAll<ClientChangeLog>('client_audit_history');
+        setClientChangeLogs(logs.sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()));
+      } catch {}
+
+      try {
+        const b = await localDb.getAll<ImportBatch>('batches');
+        setBatches(b);
+      } catch {}
+
+      try {
+        const p = await localDb.getAll<ProtectionAsset>('policies');
+        setPolicies(p);
+      } catch {}
+
     } catch (err) {
       console.error('Failed to load IndexedDB data', err);
     }

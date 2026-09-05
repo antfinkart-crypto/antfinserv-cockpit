@@ -15,7 +15,7 @@ import {
 } from '../types';
 
 const DB_NAME = 'antfinserv_cockpit_db_v4';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export class LocalDatabase {
   private db: IDBDatabase | null = null;
@@ -126,6 +126,9 @@ export class LocalDatabase {
           const auditStore = db.createObjectStore('insurance_audit_logs', { keyPath: 'id' });
           auditStore.createIndex('policy_id', 'policy_id', { unique: false });
           auditStore.createIndex('performed_at', 'performed_at', { unique: false });
+        }
+        if (!db.objectStoreNames.contains('insurer_registry')) {
+          db.createObjectStore('insurer_registry', { keyPath: 'id' });
         }
       };
 
@@ -270,97 +273,163 @@ export class LocalDatabase {
 
   async getAll<T>(storeName: string): Promise<T[]> {
     await this.init();
-    return new Promise((resolve, reject) => {
-      const tx = this.db!.transaction(storeName, 'readonly');
-      const store = tx.objectStore(storeName);
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
+    if (!this.db || !this.db.objectStoreNames.contains(storeName)) {
+      return [];
+    }
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      } catch (err) {
+        console.warn(`getAll on ${storeName} caught error:`, err);
+        resolve([]);
+      }
     });
   }
 
   async get<T>(storeName: string, key: IDBValidKey): Promise<T | undefined> {
     await this.init();
-    return new Promise((resolve, reject) => {
-      const tx = this.db!.transaction(storeName, 'readonly');
-      const store = tx.objectStore(storeName);
-      const req = store.get(key);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+    if (!this.db || !this.db.objectStoreNames.contains(storeName)) {
+      return undefined;
+    }
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(undefined);
+      } catch (err) {
+        console.warn(`get on ${storeName} caught error:`, err);
+        resolve(undefined);
+      }
     });
   }
 
   async put<T>(storeName: string, item: T): Promise<void> {
     await this.init();
-    return new Promise((resolve, reject) => {
-      const tx = this.db!.transaction([storeName, 'outbox'], 'readwrite');
-      const store = tx.objectStore(storeName);
-      store.put(item);
+    if (!this.db || !this.db.objectStoreNames.contains(storeName)) {
+      return;
+    }
+    return new Promise((resolve) => {
+      try {
+        const stores = [storeName];
+        if (this.db!.objectStoreNames.contains('outbox')) {
+          stores.push('outbox');
+        }
+        const tx = this.db!.transaction(stores, 'readwrite');
+        const store = tx.objectStore(storeName);
+        store.put(item);
 
-      const outbox = tx.objectStore('outbox');
-      outbox.add({
-        table_name: storeName,
-        action: 'UPSERT',
-        payload: item,
-        timestamp: new Date().toISOString()
-      });
+        if (this.db!.objectStoreNames.contains('outbox')) {
+          const outbox = tx.objectStore('outbox');
+          outbox.add({
+            table_name: storeName,
+            action: 'UPSERT',
+            payload: item,
+            timestamp: new Date().toISOString()
+          });
+        }
 
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch (err) {
+        console.warn(`put on ${storeName} caught error:`, err);
+        resolve();
+      }
     });
   }
 
   async putMany<T>(storeName: string, items: T[]): Promise<void> {
     await this.init();
     if (!items || items.length === 0) return;
-    return new Promise((resolve, reject) => {
-      const tx = this.db!.transaction([storeName, 'outbox'], 'readwrite');
-      const store = tx.objectStore(storeName);
-      const outbox = tx.objectStore('outbox');
+    if (!this.db || !this.db.objectStoreNames.contains(storeName)) {
+      return;
+    }
+    return new Promise((resolve) => {
+      try {
+        const stores = [storeName];
+        if (this.db!.objectStoreNames.contains('outbox')) {
+          stores.push('outbox');
+        }
+        const tx = this.db!.transaction(stores, 'readwrite');
+        const store = tx.objectStore(storeName);
+        const outbox = this.db!.objectStoreNames.contains('outbox') ? tx.objectStore('outbox') : null;
 
-      for (const item of items) {
-        store.put(item);
-        outbox.add({
-          table_name: storeName,
-          action: 'UPSERT',
-          payload: item,
-          timestamp: new Date().toISOString()
-        });
+        for (const item of items) {
+          store.put(item);
+          if (outbox) {
+            outbox.add({
+              table_name: storeName,
+              action: 'UPSERT',
+              payload: item,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch (err) {
+        console.warn(`putMany on ${storeName} caught error:`, err);
+        resolve();
       }
-
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
     });
   }
 
   async delete(storeName: string, key: IDBValidKey): Promise<void> {
     await this.init();
-    return new Promise((resolve, reject) => {
-      const tx = this.db!.transaction([storeName, 'outbox'], 'readwrite');
-      const store = tx.objectStore(storeName);
-      store.delete(key);
+    if (!this.db || !this.db.objectStoreNames.contains(storeName)) {
+      return;
+    }
+    return new Promise((resolve) => {
+      try {
+        const stores = [storeName];
+        if (this.db!.objectStoreNames.contains('outbox')) {
+          stores.push('outbox');
+        }
+        const tx = this.db!.transaction(stores, 'readwrite');
+        const store = tx.objectStore(storeName);
+        store.delete(key);
 
-      const outbox = tx.objectStore('outbox');
-      outbox.add({
-        table_name: storeName,
-        action: 'DELETE',
-        payload: { key },
-        timestamp: new Date().toISOString()
-      });
+        if (this.db!.objectStoreNames.contains('outbox')) {
+          const outbox = tx.objectStore('outbox');
+          outbox.add({
+            table_name: storeName,
+            action: 'DELETE',
+            payload: { key },
+            timestamp: new Date().toISOString()
+          });
+        }
 
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch (err) {
+        console.warn(`delete on ${storeName} caught error:`, err);
+        resolve();
+      }
     });
   }
 
   async clear(storeName: string): Promise<void> {
     await this.init();
-    return new Promise((resolve, reject) => {
-      const tx = this.db!.transaction(storeName, 'readwrite');
-      const store = tx.objectStore(storeName);
-      store.clear();
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+    if (!this.db || !this.db.objectStoreNames.contains(storeName)) {
+      return;
+    }
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        store.clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch (err) {
+        console.warn(`clear on ${storeName} caught error:`, err);
+        resolve();
+      }
     });
   }
 
