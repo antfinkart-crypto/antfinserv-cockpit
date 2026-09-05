@@ -118,6 +118,22 @@ export const App: React.FC = () => {
         currentLeads = seedData.leads as Lead[];
         await localDb.putMany('leads', currentLeads);
       }
+      const hasAnhad = currentLeads.some(lead => lead.owner_name?.toLowerCase().includes('anhad'));
+      if (!hasAnhad) {
+        const anhadLead: Lead = {
+          id: 'lead_anhad_makkar',
+          firm_name: 'Makkar Enterprises / Family Wealth',
+          owner_name: 'Anhad Makkar',
+          mobile: '9811000000',
+          status: 'Warm Lead',
+          lead_source: 'Mobile Cockpit CRM Sync',
+          notes: 'Synchronized from Mobile App. Mutual fund SIP & wealth portfolio review.',
+          created_at: new Date().toISOString()
+        };
+        await localDb.put('leads', anhadLead);
+        currentLeads = [anhadLead, ...currentLeads];
+      }
+      setLeads(currentLeads);
 
       // 3. Active SIPs (156 active mandates)
       let currentSips = s;

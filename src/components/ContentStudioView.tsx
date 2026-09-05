@@ -235,6 +235,19 @@ May this special day mark the beginning of an extraordinary year blessed with go
 It is our privilege to walk alongside you on your wealth-building journey!`
   },
   {
+    id: 'CEL-003',
+    title: 'Personalized Birthday Greeting: Prosperity & Longevity',
+    category: 'Birthdays & Celebrations',
+    date: 'Today',
+    tags: ['#BirthdayWishes', '#AntFinServCelebration', '#FamilyMilestone'],
+    views: 942,
+    bannerType: 'celebration',
+    headline: 'Heartiest Birthday Wishes!',
+    subheadline: 'Wishing you longevity, vibrant health, and unstoppable wealth compounding with your loved ones.',
+    defaultCaption: `Dear Esteemed Client,\n\nHeartiest Birthday Greetings to you and your family! 🎂💐\n\nMay this year unfold endless moments of joy, robust good health, and continued compounding prosperity.\n\nWarm regards,\nAntFinServ Wealth Advisory`,
+    isCustom: true
+  },
+  {
     id: 'CEL-002',
     title: 'Wedding Anniversary: Planning Your Future Together',
     category: 'Birthdays & Celebrations',

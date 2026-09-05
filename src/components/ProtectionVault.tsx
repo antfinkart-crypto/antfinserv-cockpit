@@ -1795,6 +1795,19 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
           </div>
         </div>
       )}
+
+      {/* EDIT POLICY MODAL */}
+      {isEditPolicyModalOpen && (policyToEdit || selectedPolicy) && (
+        <EditPolicyModal
+          policy={policyToEdit || selectedPolicy!}
+          isOpen={isEditPolicyModalOpen}
+          onClose={() => {
+            setIsEditPolicyModalOpen(false);
+            setPolicyToEdit(null);
+          }}
+          onSave={handleSaveEditedPolicy}
+        />
+      )}
     </div>
   );
 };

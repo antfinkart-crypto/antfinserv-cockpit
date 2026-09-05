@@ -13490,5 +13490,16 @@
       "holding_match_status": "Matched"
     }
   ],
-  "leads": []
+  "leads": [
+    {
+      "id": "lead_anhad_makkar",
+      "firm_name": "Makkar Enterprises / Family Wealth",
+      "owner_name": "Anhad Makkar",
+      "mobile": "9811000000",
+      "status": "Warm Lead",
+      "lead_source": "Mobile Cockpit CRM Sync",
+      "notes": "Synchronized from Mobile App. Mutual fund SIP & wealth portfolio review.",
+      "created_at": "2026-09-05T14:52:34.204Z"
+    }
+  ]
 }
