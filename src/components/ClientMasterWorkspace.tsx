@@ -31,7 +31,8 @@ import {
   Heart,
   Car,
   Activity,
-  ExternalLink
+  ExternalLink,
+  GitMerge
 } from 'lucide-react';
 import {
   ClientMasterRecord,
@@ -48,6 +49,7 @@ import { parseClientMasterReport, calculateCurrentAge } from '../lib/clientMaste
 import { matchAndUpsertClients } from '../lib/clientMatchingEngine';
 import { ClientDetailDrawer } from './ClientDetailDrawer';
 import { EditClientModal } from './EditClientModal';
+import { MergeClientsModal } from './MergeClientsModal';
 import { generateWhatsAppUrl } from '../lib/whatsAppRouter';
 import {
   getClientActiveProducts,
@@ -82,6 +84,11 @@ interface ClientMasterWorkspaceProps {
   onDeleteHolding?: (holdingId: string) => Promise<void>;
   onDeletePolicy?: (policyId: string) => void;
   onNavigateToContentStudio?: (preset?: string) => void;
+  onMergeClients?: (
+    primaryClientId: string,
+    secondaryClientIds: string[],
+    consolidated: Partial<ClientMasterRecord>
+  ) => Promise<void>;
 }
 
 export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
@@ -102,7 +109,8 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
   onUpdateHolding,
   onDeleteHolding,
   onDeletePolicy,
-  onNavigateToContentStudio
+  onNavigateToContentStudio,
+  onMergeClients
 }) => {
   // Navigation Sub-Tabs & Product Buckets
   const [activeSubTab, setActiveSubTab] = useState<
@@ -114,6 +122,8 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<ClientMasterRecord | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+  const [mergeCandidateClients, setMergeCandidateClients] = useState<ClientMasterRecord[]>([]);
   const [clientToDelete, setClientToDelete] = useState<ClientMasterRecord | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -542,6 +552,19 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
 
         {/* Global Action CTAs */}
         <div className="flex items-center gap-2.5">
+          {onMergeClients && (
+            <button
+              onClick={() => {
+                setMergeCandidateClients([]);
+                setIsMergeModalOpen(true);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+              title="Merge duplicate investor profiles into a single global client"
+            >
+              <GitMerge className="w-4 h-4 text-amber-400" />
+              <span>Merge Duplicate Profiles</span>
+            </button>
+          )}
           <button
             onClick={() => setActiveSubTab('import')}
             className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-xs transition-all cursor-pointer"
@@ -852,14 +875,31 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
                   Deselect All
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsBulkDeleteConfirmOpen(true)}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-2 shadow-xs cursor-pointer transition-all"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete Selected ({selectedClientIds.size})
-              </button>
+              <div className="flex items-center gap-2">
+                {onMergeClients && selectedClientIds.size >= 2 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const chosen = clients.filter(c => selectedClientIds.has(c.client_id));
+                      setMergeCandidateClients(chosen);
+                      setIsMergeModalOpen(true);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold flex items-center gap-2 shadow-xs cursor-pointer transition-all"
+                    title="Merge selected client records into one unified profile"
+                  >
+                    <GitMerge className="w-4 h-4" />
+                    <span>Merge Selected ({selectedClientIds.size})</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsBulkDeleteConfirmOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-2 shadow-xs cursor-pointer transition-all"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Selected ({selectedClientIds.size})</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -1812,6 +1852,25 @@ export const ClientMasterWorkspace: React.FC<ClientMasterWorkspaceProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* MERGE CLIENTS MODAL */}
+      {isMergeModalOpen && onMergeClients && (
+        <MergeClientsModal
+          isOpen={isMergeModalOpen}
+          onClose={() => {
+            setIsMergeModalOpen(false);
+            setMergeCandidateClients([]);
+          }}
+          selectedClients={mergeCandidateClients.length > 0 ? mergeCandidateClients : clients.filter(c => selectedClientIds.has(c.client_id))}
+          allClients={clients}
+          onMerge={async (pId, sIds, consolidated) => {
+            await onMergeClients(pId, sIds, consolidated);
+            setIsMergeModalOpen(false);
+            setSelectedClientIds(new Set());
+            setMergeCandidateClients([]);
+          }}
+        />
       )}
     </div>
   );

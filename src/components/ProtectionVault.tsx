@@ -31,9 +31,10 @@ import {
   Info,
   Award,
   ArrowRight,
-  Layers,
   Trash2,
-  Edit3
+  Edit3,
+  GitMerge,
+  Layers
 } from 'lucide-react';
 import { ProtectionAsset, ClientMasterRecord } from '../types';
 import {
@@ -48,11 +49,21 @@ import { generateWhatsAppUrl } from '../lib/whatsAppRouter';
 import { SYNTHETIC_INSURANCE_POLICIES } from '../data/syntheticInsuranceFixtures';
 import { syncPolicyMembersToClientMaster } from '../lib/insuranceClientSync';
 import { EditPolicyModal } from './EditPolicyModal';
+import { ClaimsHelpdeskView } from './ClaimsHelpdeskView';
+import { MergeClientsModal } from './MergeClientsModal';
+import { InsurerRecord, DEFAULT_INSURERS } from '../data/insurerRegistry';
 
 interface ProtectionVaultProps {
   policies?: ProtectionAsset[];
   insurancePolicies?: InsurancePolicy[];
   clients?: ClientMasterRecord[];
+  insurers?: InsurerRecord[];
+  onAddOrUpdateInsurer?: (insurer: InsurerRecord) => Promise<void>;
+  onMergeClients?: (
+    primaryClientId: string,
+    secondaryClientIds: string[],
+    consolidatedData: Partial<ClientMasterRecord>
+  ) => Promise<void>;
   onOpenUploadModal: () => void;
   onUpdatePolicy?: (policy: InsurancePolicy) => void;
   onDeletePolicy?: (policyId: string) => void;
@@ -66,6 +77,9 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
   policies = [],
   insurancePolicies = [],
   clients = [],
+  insurers = DEFAULT_INSURERS,
+  onAddOrUpdateInsurer,
+  onMergeClients,
   onOpenUploadModal,
   onUpdatePolicy,
   onDeletePolicy,
@@ -75,6 +89,8 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
   onNavigateToContentStudio
 }) => {
   const [selectedPolicyIds, setSelectedPolicyIds] = useState<Set<string>>(new Set());
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+  const [mergePreselectedClients, setMergePreselectedClients] = useState<ClientMasterRecord[]>([]);
   // Use authoritative insurancePolicies directly (respecting deletions), with fallback to synthetic only if uninitialized
   const activeInsurancePolicies = useMemo<InsurancePolicy[]>(() => {
     if (insurancePolicies) {
@@ -584,7 +600,8 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
                   const daysLeft = Math.ceil(
                     (new Date(pol.expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
                   );
-                  const waMsg = `Dear ${pol.client_name}, this is an advance reminder from AntFinServ (ARN-94204) regarding your ${pol.product_name} policy (${pol.policy_number}) with ${pol.insurer_name}. It is scheduled for renewal on ${pol.expiry_date} (${daysLeft} days remaining). Please let us know if you wish to review your no-claim bonus or explore continuous coverage.`;
+                  const grossAmt = (pol.gross_premium || pol.net_premium).toLocaleString('en-IN');
+                  const waMsg = `Dear ${pol.client_name}, this is an advance reminder from AntFinServ (ARN-94204) regarding your ${pol.product_name} policy (${pol.policy_number}) with ${pol.insurer_name}. It is scheduled for renewal on ${pol.expiry_date} (${daysLeft} days remaining, Renewal Amount: ₹${grossAmt}). Please let us know if you wish to review your no-claim bonus or explore continuous coverage.`;
                   const waUrl = generateWhatsAppUrl(pol.proposer_mobile || '', waMsg);
 
                   return (
@@ -597,7 +614,18 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
                           <h4 className="font-bold text-sm text-slate-900 mt-1">{pol.client_name}</h4>
                           <p className="text-xs text-slate-500 font-mono">{pol.policy_number}</p>
                         </div>
-                        <span className="text-xs font-bold text-slate-900">₹{pol.net_premium.toLocaleString('en-IN')}</span>
+                        <div className="text-right">
+                          <span className="text-sm font-black text-slate-900 block">
+                            ₹{(pol.gross_premium || pol.net_premium).toLocaleString('en-IN')}
+                          </span>
+                          {pol.gross_premium && pol.gross_premium !== pol.net_premium ? (
+                            <span className="text-[10px] text-slate-400 font-medium block">
+                              Net: ₹{pol.net_premium.toLocaleString('en-IN')}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-emerald-600 font-semibold block">0% GST Exempt</span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                         <span className="text-[11px] text-slate-500">{pol.insurer_name}</span>
@@ -1016,6 +1044,30 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
                             <div className="text-[11px] text-slate-400 font-mono">{policy.policy_number}</div>
                           </td>
                           <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
+                            {onMergeClients && (
+                              <button
+                                onClick={() => {
+                                  // Find potential duplicate records like SWAMINATHAN ARUNACHALAM vs A SWAMINATHAN
+                                  const mName = member.member_name.toLowerCase();
+                                  const matches = clients.filter(c => {
+                                    const cName = c.investor_name.toLowerCase();
+                                    return (
+                                      cName === mName ||
+                                      cName.includes(mName) ||
+                                      mName.includes(cName) ||
+                                      (mName.includes('swaminathan') && cName.includes('swaminathan'))
+                                    );
+                                  });
+                                  setMergePreselectedClients(matches.length >= 2 ? matches : clients.slice(0, 2));
+                                  setIsMergeModalOpen(true);
+                                }}
+                                className="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-[11px] border border-amber-200 transition-all inline-flex items-center gap-1 cursor-pointer"
+                                title="Merge duplicate client profiles globally"
+                              >
+                                <GitMerge className="w-3 h-3 text-amber-600" />
+                                <span>Merge Profile</span>
+                              </button>
+                            )}
                             <button
                               onClick={() => {
                                 handleSyncMembers(policy);
@@ -1071,7 +1123,8 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
               const daysLeft = Math.ceil(
                 (new Date(pol.expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
               );
-              const waMsg = `Dear ${pol.client_name}, your ${pol.product_name} (${pol.policy_number}) with ${pol.insurer_name} is due for renewal on ${pol.expiry_date}. As your trusted financial advisor at AntFinServ (ARN-94204), we ensure continuous coverage with no-claim bonus preservation. Please confirm your renewal preference.`;
+              const grossAmt = (pol.gross_premium || pol.net_premium).toLocaleString('en-IN');
+              const waMsg = `Dear ${pol.client_name}, your ${pol.product_name} (${pol.policy_number}) with ${pol.insurer_name} is due for renewal on ${pol.expiry_date} (Renewal Amount: ₹${grossAmt}). As your trusted financial advisor at AntFinServ (ARN-94204), we ensure continuous coverage with no-claim bonus preservation. Please confirm your renewal preference.`;
               const waUrl = generateWhatsAppUrl(pol.proposer_mobile || '', waMsg);
 
               return (
@@ -1091,8 +1144,19 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
 
                   <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
                     <div>
-                      <span className="text-slate-400 text-[10px] uppercase font-bold block">Renewal Premium</span>
-                      <strong className="text-slate-900 font-extrabold text-sm">₹{pol.net_premium.toLocaleString('en-IN')}</strong>
+                      <span className="text-slate-400 text-[10px] uppercase font-bold block">Renewal Premium (Gross)</span>
+                      <strong className="text-slate-900 font-black text-base">
+                        ₹{(pol.gross_premium || pol.net_premium).toLocaleString('en-IN')}
+                      </strong>
+                      {pol.gross_premium && pol.gross_premium !== pol.net_premium ? (
+                        <span className="text-[10px] text-slate-400 font-medium block">
+                          Net: ₹{pol.net_premium.toLocaleString('en-IN')}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-emerald-600 font-semibold block">
+                          0% GST Exempt
+                        </span>
+                      )}
                     </div>
                     <a
                       href={waUrl}
@@ -1113,46 +1177,18 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
 
       {/* SUB-VIEW 5: CLAIMS DESK & TPA */}
       {activeSubTab === 'claims' && (
-        <div className="space-y-5">
-          {/* TPA Helplines Quick Access Strip */}
-          <div className="p-4 rounded-2xl bg-slate-900 text-white space-y-2.5 shadow-md">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <PhoneCall className="w-4 h-4 text-emerald-400" />
-                <span className="font-extrabold text-xs uppercase tracking-wider text-emerald-400">
-                  24x7 Cashless Hospital & Garage TPA Helplines
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-400">Direct Emergency Response Desk</span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
-              <a href="tel:18004252255" className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors border border-slate-700 block">
-                <span className="text-[10px] text-slate-400 block font-semibold">Star Health Desk</span>
-                <strong className="font-mono text-emerald-300">1800 425 2255</strong>
-              </a>
-              <a href="tel:18002666400" className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors border border-slate-700 block">
-                <span className="text-[10px] text-slate-400 block font-semibold">HDFC ERGO TPA</span>
-                <strong className="font-mono text-emerald-300">1800 2666 400</strong>
-              </a>
-              <a href="tel:18602669966" className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors border border-slate-700 block">
-                <span className="text-[10px] text-slate-400 block font-semibold">Tata AIA Desk</span>
-                <strong className="font-mono text-emerald-300">1860 266 9966</strong>
-              </a>
-              <a href="tel:18002666" className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors border border-slate-700 block">
-                <span className="text-[10px] text-slate-400 block font-semibold">ICICI Lombard</span>
-                <strong className="font-mono text-emerald-300">1800 2666</strong>
-              </a>
-              <a href="tel:18001024488" className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors border border-slate-700 block">
-                <span className="text-[10px] text-slate-400 block font-semibold">Care Health Desk</span>
-                <strong className="font-mono text-emerald-300">1800 102 4488</strong>
-              </a>
-            </div>
-          </div>
+        <div className="space-y-6">
+          {/* Official Claims Repository & Document Checklist Desk */}
+          <ClaimsHelpdeskView
+            policies={activeInsurancePolicies}
+            insurers={insurers}
+            onAddOrUpdateInsurer={onAddOrUpdateInsurer}
+          />
 
           {/* Action Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-slate-200">
             <div>
-              <h3 className="font-extrabold text-slate-900 text-base">Active & Settled Claims History</h3>
+              <h3 className="font-extrabold text-slate-900 text-base">Active & Settled Claims Intimations</h3>
               <p className="text-xs text-slate-500">Track claim intimation, cashless approval status, deductions, and settlement records.</p>
             </div>
             <button
@@ -1980,6 +2016,24 @@ export const ProtectionVault: React.FC<ProtectionVaultProps> = ({
             setPolicyToEdit(null);
           }}
           onSave={handleSaveEditedPolicy}
+        />
+      )}
+
+      {/* MERGE DUPLICATE CLIENTS MODAL */}
+      {isMergeModalOpen && onMergeClients && (
+        <MergeClientsModal
+          isOpen={isMergeModalOpen}
+          onClose={() => {
+            setIsMergeModalOpen(false);
+            setMergePreselectedClients([]);
+          }}
+          selectedClients={mergePreselectedClients}
+          allClients={clients}
+          onMerge={async (primaryId, secondaryIds, consolidated) => {
+            await onMergeClients(primaryId, secondaryIds, consolidated);
+            setIsMergeModalOpen(false);
+            setMergePreselectedClients([]);
+          }}
         />
       )}
     </div>

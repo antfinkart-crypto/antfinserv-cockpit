@@ -22,6 +22,7 @@ import { getCelebrationAlerts } from './lib/celebrationEngine';
 import { syncPolicyMembersToClientMaster } from './lib/insuranceClientSync';
 import { isSamePersonOrEntity } from './lib/entityResolution';
 import { SYNTHETIC_INSURANCE_POLICIES } from './data/syntheticInsuranceFixtures';
+import { DEFAULT_INSURERS, InsurerRecord } from './data/insurerRegistry';
 import seedData from './data/seedData.json';
 import {
   Client,
@@ -55,6 +56,7 @@ export const App: React.FC = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [policies, setPolicies] = useState<ProtectionAsset[]>([]);
   const [insurancePolicies, setInsurancePolicies] = useState<InsurancePolicy[]>([]);
+  const [insurers, setInsurers] = useState<InsurerRecord[]>(DEFAULT_INSURERS);
   const [dispatchedKeys, setDispatchedKeys] = useState<Set<string>>(new Set());
 
   // Date Simulation for Testing Shields
@@ -97,17 +99,31 @@ export const App: React.FC = () => {
         localDb.getAll<ProtectionAsset>('policies'),
       ]);
 
-      setClients(c);
-
       // 1. Authoritative Client Master with exact mobile mappings (112 clients)
       let masterRecords = cm;
-      if (masterRecords.length < 112) {
+      if (masterRecords.length < 100) {
         if (seedData.client_master && seedData.client_master.length > 0) {
           masterRecords = seedData.client_master as ClientMasterRecord[];
           await localDb.clear('client_master');
           await localDb.putMany('client_master', masterRecords);
         }
       }
+
+      let clientRecords = c;
+      if (clientRecords.length < 100 && seedData.clients && seedData.clients.length > 0) {
+        clientRecords = seedData.clients as Client[];
+        await localDb.clear('clients');
+        await localDb.putMany('clients', clientRecords);
+      }
+      setClients(clientRecords);
+
+      // Load verified Insurer Registry
+      let savedInsurers = await localDb.getAll<InsurerRecord>('insurer_registry');
+      if (!savedInsurers || savedInsurers.length === 0) {
+        savedInsurers = DEFAULT_INSURERS;
+        await localDb.putMany('insurer_registry', savedInsurers);
+      }
+      setInsurers(savedInsurers);
 
       // 2. Clean dummy leads
       const dummyIds = ['lead_rai_sahib', 'lead_arpit_arora'];
@@ -226,44 +242,7 @@ export const App: React.FC = () => {
         }
       }
 
-      // 6. Institutional Multi-String Entity Resolution Deduplication Pass
-      const deduplicatedMaster: ClientMasterRecord[] = [];
-      const removedClientIds: string[] = [];
-
-      for (const cmRecord of updatedMaster) {
-        const matchIdx = deduplicatedMaster.findIndex(existing => isSamePersonOrEntity(existing, cmRecord));
-        if (matchIdx !== -1) {
-          const existing = deduplicatedMaster[matchIdx];
-          const bestName = (cmRecord.investor_name && cmRecord.investor_name.length > existing.investor_name.length && !cmRecord.investor_name.includes('.'))
-            ? cmRecord.investor_name
-            : existing.investor_name;
-          const merged: ClientMasterRecord = {
-            ...existing,
-            investor_name: bestName,
-            pan: existing.pan || cmRecord.pan || null,
-            dob: existing.dob || cmRecord.dob || null,
-            gender: (existing.gender && existing.gender !== 'Not Specified') ? existing.gender : cmRecord.gender,
-            mobile: existing.mobile || cmRecord.mobile || '',
-            email: existing.email || cmRecord.email || '',
-            address_line_1: existing.address_line_1 || cmRecord.address_line_1 || '',
-            city: existing.city || cmRecord.city || '',
-            state: existing.state || cmRecord.state || '',
-            pincode: existing.pincode || cmRecord.pincode || '',
-            aum: Math.max(existing.aum || 0, cmRecord.aum || 0),
-            updated_at: new Date().toISOString()
-          };
-          deduplicatedMaster[matchIdx] = merged;
-          removedClientIds.push(cmRecord.client_id);
-        } else {
-          deduplicatedMaster.push(cmRecord);
-        }
-      }
-
-      for (const rId of removedClientIds) {
-        await localDb.delete('client_master', rId);
-        await localDb.delete('clients', rId);
-      }
-      masterRecords = deduplicatedMaster;
+      masterRecords = updatedMaster;
 
       setClientMaster(masterRecords);
       setClientImportHistory(imph.sort((a, b) => new Date(b.imported_at).getTime() - new Date(a.imported_at).getTime()));
@@ -651,6 +630,140 @@ export const App: React.FC = () => {
     }
   };
 
+  // Global Profile Merging Handler
+  const handleMergeClients = async (
+    primaryClientId: string,
+    secondaryClientIds: string[],
+    consolidated: Partial<ClientMasterRecord>
+  ) => {
+    const primary = clientMaster.find(c => c.client_id === primaryClientId);
+    if (!primary) return;
+
+    const secondaryClients = clientMaster.filter(c => secondaryClientIds.includes(c.client_id));
+    const secondaryNames = new Set(secondaryClients.map(c => c.investor_name.toLowerCase()));
+    const secondaryPans = new Set(secondaryClients.map(c => (c.pan || '').toUpperCase()).filter(Boolean));
+    const secondaryIdSet = new Set(secondaryClientIds);
+
+    // 1. Update primary client record
+    const updatedPrimary: ClientMasterRecord = {
+      ...primary,
+      ...consolidated,
+      updated_at: new Date().toISOString()
+    };
+    await localDb.put('client_master', updatedPrimary);
+    await localDb.put('clients', {
+      id: updatedPrimary.client_id,
+      client_id: updatedPrimary.client_id,
+      pan_number: updatedPrimary.pan || '',
+      full_name: updatedPrimary.investor_name,
+      mobile: updatedPrimary.mobile || '',
+      email: updatedPrimary.email || '',
+      dob: updatedPrimary.dob,
+      client_type: 'Retail'
+    });
+
+    // 2. Delete secondary client records
+    for (const sId of secondaryClientIds) {
+      await localDb.delete('client_master', sId);
+      await localDb.delete('clients', sId);
+    }
+
+    // 3. Re-point Insurance Policies and covered members
+    let modifiedPolicies = false;
+    const nextInsurancePolicies = insurancePolicies.map(pol => {
+      let polChanged = false;
+      let updatedPol = { ...pol };
+
+      if (updatedPol.primary_client_id && secondaryIdSet.has(updatedPol.primary_client_id)) {
+        updatedPol.primary_client_id = primaryClientId;
+        polChanged = true;
+      }
+      if (secondaryNames.has(updatedPol.client_name.toLowerCase())) {
+        updatedPol.client_name = updatedPrimary.investor_name;
+        polChanged = true;
+      }
+      if (updatedPol.proposer_name && secondaryNames.has(updatedPol.proposer_name.toLowerCase())) {
+        updatedPol.proposer_name = updatedPrimary.investor_name;
+        polChanged = true;
+      }
+      if (updatedPol.members && updatedPol.members.length > 0) {
+        updatedPol.members = updatedPol.members.map(m => {
+          if ((m.client_id && secondaryIdSet.has(m.client_id)) || secondaryNames.has(m.member_name.toLowerCase())) {
+            polChanged = true;
+            return {
+              ...m,
+              client_id: primaryClientId,
+              member_name: updatedPrimary.investor_name,
+              dob: updatedPrimary.dob || m.dob
+            };
+          }
+          return m;
+        });
+      }
+
+      if (polChanged) {
+        modifiedPolicies = true;
+        localDb.put('insurance_policies', updatedPol);
+      }
+      return updatedPol;
+    });
+
+    // 4. Re-point Holdings & recalculate AUM
+    const nextHoldings = holdings.map(h => {
+      if (
+        secondaryNames.has(h.investor_name.toLowerCase()) ||
+        (h.pan && secondaryPans.has(h.pan.toUpperCase()))
+      ) {
+        const updatedH = {
+          ...h,
+          investor_name: updatedPrimary.investor_name,
+          pan: updatedPrimary.pan || h.pan
+        };
+        localDb.put('holdings', updatedH);
+        return updatedH;
+      }
+      return h;
+    });
+
+    const primaryHoldings = nextHoldings.filter(h =>
+      (updatedPrimary.pan && h.pan === updatedPrimary.pan) ||
+      h.investor_name.toLowerCase() === updatedPrimary.investor_name.toLowerCase()
+    );
+    const totalAum = primaryHoldings.reduce((sum, h) => sum + (h.current_value || 0), 0);
+    updatedPrimary.aum = totalAum;
+    await localDb.put('client_master', updatedPrimary);
+
+    // 5. Update State
+    setClientMaster(prev => [updatedPrimary, ...prev.filter(c => c.client_id !== primaryClientId && !secondaryIdSet.has(c.client_id))]);
+    setClients(prev => [
+      {
+        id: updatedPrimary.client_id,
+        client_id: updatedPrimary.client_id,
+        pan_number: updatedPrimary.pan || '',
+        full_name: updatedPrimary.investor_name,
+        mobile: updatedPrimary.mobile || '',
+        email: updatedPrimary.email || '',
+        dob: updatedPrimary.dob,
+        client_type: 'Retail'
+      },
+      ...prev.filter(c => (c.client_id || (c as any).id) !== primaryClientId && !secondaryIdSet.has(c.client_id || (c as any).id))
+    ]);
+    if (modifiedPolicies) setInsurancePolicies(nextInsurancePolicies);
+    setHoldings(nextHoldings);
+
+    alert(`Profiles Merged Successfully!\nUnified into "${updatedPrimary.investor_name}".\nAll linked insurance policies, floater members, and portfolio holdings re-assigned globally.`);
+  };
+
+  // Add or Update Insurer Registry Entry
+  const handleAddOrUpdateInsurer = async (insurer: InsurerRecord) => {
+    await localDb.put('insurer_registry', insurer);
+    setInsurers(prev => {
+      const filtered = prev.filter(i => i.id !== insurer.id && i.name.toLowerCase() !== insurer.name.toLowerCase());
+      return [insurer, ...filtered];
+    });
+    alert(`Insurer "${insurer.name}" registered in Verified Claims Registry.`);
+  };
+
   // Two-Way Sync Handler
   const handleSync = async () => {
     setIsSyncing(true);
@@ -728,6 +841,7 @@ export const App: React.FC = () => {
             onDeleteHolding={handleDeleteHolding}
             onDeletePolicy={handleDeleteInsurancePolicy}
             onNavigateToContentStudio={() => setActiveTab('content')}
+            onMergeClients={handleMergeClients}
           />
         )}
 
@@ -757,6 +871,9 @@ export const App: React.FC = () => {
             policies={policies}
             insurancePolicies={insurancePolicies}
             clients={clientMaster}
+            insurers={insurers}
+            onAddOrUpdateInsurer={handleAddOrUpdateInsurer}
+            onMergeClients={handleMergeClients}
             onOpenUploadModal={() => setIsUploadPolicyOpen(true)}
             onUpdatePolicy={async (updatedPolicy) => {
               await localDb.put('insurance_policies', updatedPolicy);
